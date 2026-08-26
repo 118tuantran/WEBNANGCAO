@@ -1,0 +1,481 @@
+PHÂN TÍCH & THIẾT KẾ
+HỆ THỐNG THÔNG TIN
+Use Case · User Story · Requirements · Domain Data · System Design
+Trường thông tin	Nội dung
+Tên dự án / hệ thống	Hệ thống Quản lý Kho Hàng
+Đơn vị / khách hàng	Doanh nghiệp / Cửa hàng / Kho hàng
+Nhóm thực hiện	Nhóm 9 :
+Hoàng Quốc Huy
+Trần Anh Tuấn 
+Trần Nguyễn Tuấn Minh
+Phiên bản tài liệu	v1.0 – Draft
+Ngày cập nhật	21/08/2026
+Trạng thái	Draft / Review / Approved
+
+Phạm vi thiết kế: 3 role — Admin hệ thống, Quản lý kho, Nhân viên kho. Scope tập trung vào danh mục, nhập/xuất, tồn kho, kiểm kê/điều chỉnh, báo cáo và phân quyền.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+1. Bối cảnh, mục tiêu và phạm vi
+1.1 Tóm tắt điều hành
+Trường thông tin	Nội dung
+Vấn đề cần giải quyết	Quản lý kho bằng Excel/sổ dễ sai số lượng, khó biết ai đã thay đổi dữ liệu, khó kiểm soát xuất vượt tồn và tốn thời gian đối chiếu khi kiểm kê.
+Giá trị kỳ vọng	Chuẩn hóa vòng đời phiếu nhập/xuất; tồn kho chỉ thay đổi sau nghiệp vụ hợp lệ được duyệt; mọi biến động có nguồn truy vết; kiểm kê có đối chiếu; báo cáo NXT được tính từ giao dịch.
+Giải pháp ở mức khái niệm	Web app quản lý SKU, kho, phiếu nhập, phiếu xuất, tồn kho, kiểm kê, điều chỉnh, cảnh báo và báo cáo. RBAC chỉ gồm 3 role để scope gọn nhưng phân quyền sâu.
+Nguyên tắc lõi	Người tạo nghiệp vụ không tự duyệt; không sửa tồn trực tiếp; chứng từ đã duyệt không sửa/xóa vật lý; mọi thay đổi tồn tạo StockTransaction.
+
+1.2 Mục tiêu và chỉ số thành công
+ID	Mục tiêu	Chỉ số / Target	Owner
+GOAL-01	Chuẩn hóa nhập/xuất	100% phiếu nhập/xuất phát sinh được lưu trên hệ thống	Quản lý kho
+GOAL-02	Kiểm soát tồn	Tra cứu tồn theo SKU/kho < 3 giây trong dữ liệu đồ án	Quản lý kho
+GOAL-03	Kiểm kê chính xác	100% đợt kiểm kê có đối chiếu system_qty/actual_qty/difference	Quản lý kho
+GOAL-04	Cảnh báo tồn thấp	SKU có quantity <= min_stock được đánh dấu cảnh báo	Quản lý kho
+GOAL-05	Truy vết	100% giao dịch tồn có user, timestamp và chứng từ nguồn	Admin / Quản lý kho
+GOAL-06	Phân quyền	100% chức năng nhạy cảm bị chặn đúng role	Admin
+
+1.3 Phạm vi
+In scope	Out of scope	Giả định	Ràng buộc
+Quản lý SKU, danh mục, đơn vị tính	POS/bán hàng tại quầy	Dữ liệu kho được chuẩn hóa trước khi nhập	Thời gian thực hiện trong một học kỳ
+Quản lý kho và ngưỡng tồn	Kế toán giá vốn/chốt sổ	Mỗi SKU có mã duy nhất	Ưu tiên công nghệ phổ biến, dễ triển khai
+Phiếu nhập → duyệt → tăng tồn	Vận chuyển/logistics	Người dùng có tài khoản hợp lệ	Không làm AI/tự động đặt hàng
+Phiếu xuất → kiểm tra tồn → duyệt → giảm tồn	Mua hàng chuyên sâu	Tồn không âm	Scope chỉ 3 role
+Kiểm kê → chênh lệch → điều chỉnh có lý do và duyệt	CRM/khách hàng	Một phiếu Approved chỉ cập nhật tồn một lần	Không xóa lịch sử giao dịch
+Cảnh báo tồn thấp; báo cáo NXT; audit log	Ứng dụng mobile native	Một kho có thể có nhiều SKU	Responsive web là đủ
+
+1.4 Bên liên quan
+ID	Bên liên quan / Actor	Mục tiêu / mối quan tâm	Quyền quyết định	Kênh tham gia
+ACT-01	Admin hệ thống	Tài khoản, role, quyền, audit log	Approve cấu hình quyền	Review hệ thống
+ACT-02	Quản lý kho	Tồn kho chính xác, duyệt chứng từ, kiểm kê, báo cáo	Approve nghiệp vụ kho	Workshop/UAT
+ACT-03	Nhân viên kho	Thực hiện nhập/xuất/kiểm kê nhanh và đúng	Execute	Interview/UAT
+
+1.5 Thuật ngữ nghiệp vụ
+Thuật ngữ	Định nghĩa duy nhất	Từ đồng nghĩa cần tránh	Owner
+SKU	Mã duy nhất của một mặt hàng/biến thể	Mã hàng tùy ý	Quản lý kho
+Tồn khả dụng	Số lượng hiện có có thể xuất tại thời điểm kiểm tra	Tồn ảo	Quản lý kho
+Phiếu nhập	Chứng từ làm tăng tồn sau khi được duyệt	Nhập tạm	Quản lý kho
+Phiếu xuất	Chứng từ làm giảm tồn sau khi được duyệt	Xuất tạm	Quản lý kho
+Kiểm kê	Đối chiếu số lượng thực tế với số lượng hệ thống	Đếm hàng đơn thuần	Quản lý kho
+Điều chỉnh tồn	Ghi nhận chênh lệch sau kiểm kê, bắt buộc lý do và phê duyệt	Sửa số lượng trực tiếp	Quản lý kho
+StockTransaction	Bản ghi biến động tồn: before/change/after/reference/user/time	Log chung chung	Hệ thống
+Ngưỡng tồn tối thiểu	Mức quantity dùng để phát hiện SKU cần cảnh báo	Mức đặt hàng	Quản lý kho
+
+
+2. Use Case Analysis
+2.1 System boundary và actor
+System boundary: Hệ thống Quản lý Kho Hàng. Chỉ có 3 actor người dùng trong phạm vi nghiệp vụ; Supplier là dữ liệu tham chiếu của phiếu nhập, không phải role đăng nhập.
+ID	Actor	Loại	Mục tiêu chính	Quyền / giới hạn
+ACT-01	Admin hệ thống	Primary	Quản lý tài khoản, role và audit	Không được tạo/duyệt nghiệp vụ làm thay đổi tồn
+ACT-02	Quản lý kho	Primary	Quản lý master data, duyệt, kiểm kê, điều chỉnh, báo cáo	Không quản lý User/Role
+ACT-03	Nhân viên kho	Primary	Tạo phiếu nhập/xuất, nhập kết quả kiểm kê, tra cứu tồn	Không duyệt, không điều chỉnh, không quản lý User/Role
+
+2.2 Danh mục Use Case
+ID	Tên Use Case	Primary actor	Priority	Mục tiêu / giá trị
+UC-01	Đăng nhập / Đăng xuất	ACT-01..03	Must	Xác thực và cấp quyền
+UC-02	Quản lý SKU	ACT-02	Must	Danh mục hàng hóa thống nhất
+UC-03	Quản lý kho	ACT-02	Must	Quản lý kho hoạt động
+UC-04	Thiết lập ngưỡng tồn	ACT-02	Should	Cấu hình cảnh báo
+UC-05	Tạo phiếu nhập	ACT-03	Must	Ghi nhận hàng thực nhận
+UC-06	Duyệt phiếu nhập	ACT-02	Must	Tăng tồn chính thức
+UC-07	Tạo phiếu xuất	ACT-03	Must	Ghi nhận hàng giao
+UC-08	Duyệt phiếu xuất	ACT-02	Must	Giảm tồn chính thức
+UC-09	Tra cứu tồn	ACT-02,03	Must	Xem tồn theo SKU/kho
+UC-10	Xem lịch sử biến động	ACT-02,03	Must	Truy vết tồn
+UC-11	Tạo đợt kiểm kê	ACT-02	Must	Mở kỳ kiểm kê
+UC-12	Ghi nhận kiểm kê	ACT-03	Must	Nhập số thực tế
+UC-13	Duyệt điều chỉnh tồn	ACT-02	Must	Xử lý chênh lệch
+UC-14	Cảnh báo tồn thấp	ACT-02,03	Should	Phát hiện SKU dưới ngưỡng
+UC-15	Báo cáo nhập-xuất-tồn	ACT-02	Must	Theo dõi vận hành
+
+2.3 Biểu mẫu Use Case chi tiết
+Trường	Nội dung
+Goal	Ghi nhận hàng thực tế nhận vào kho và chuyển chứng từ sang Chờ duyệt.
+Primary actor	ACT-03 – Nhân viên kho
+Preconditions	Đã đăng nhập; kho đang Active; SKU tồn tại và Active.
+Main flow	Chọn kho → tạo phiếu → chọn SKU → nhập số lượng → kiểm tra dữ liệu → lưu → hệ thống sinh mã phiếu và trạng thái PENDING.
+Alternative	Nếu thiếu SKU hoặc số lượng <= 0: từ chối lưu và hiển thị lỗi.
+Exception	Mất kết nối: không tạo bản ghi trùng; cho phép gửi lại sau khi kết nối.
+Success guarantee	Phiếu có mã duy nhất, người tạo và thời gian; tồn chưa thay đổi.
+
+Trường	Nội dung
+Goal	Chỉ nghiệp vụ hợp lệ mới làm tăng tồn.
+Primary actor	ACT-02 – Quản lý kho
+Preconditions	Phiếu ở PENDING; kho Active; người duyệt có quyền.
+Main flow	Mở phiếu → kiểm tra SKU/số lượng → duyệt → tạo StockTransaction → cập nhật Inventory → ghi Audit Log → Approved.
+Alternative	Từ chối kèm lý do; phiếu chuyển REJECTED và tồn không đổi.
+Exception	Phiếu đã Approved hoặc không còn PENDING: không xử lý lần hai.
+Success guarantee	Tồn tăng đúng một lần và có source/reference truy vết.
+
+Trường	Nội dung
+Goal	Ghi nhận yêu cầu xuất hàng trước khi kiểm soát và phê duyệt.
+Primary actor	ACT-03 – Nhân viên kho
+Preconditions	Đã đăng nhập; kho Active; SKU Active.
+Main flow	Chọn kho → chọn SKU → nhập số lượng → lưu → PENDING.
+Alternative	Số lượng <= 0 hoặc SKU không tồn tại: từ chối.
+Success guarantee	Phiếu được tạo nhưng tồn chưa giảm.
+
+Trường	Nội dung
+Goal	Bảo đảm xuất đúng quyền và không làm tồn âm.
+Primary actor	ACT-02 – Quản lý kho
+Preconditions	Phiếu PENDING; kho Active.
+Main flow	Mở phiếu → kiểm tra SKU/số lượng → kiểm tra tồn khả dụng → nếu đủ thì ghi transaction và giảm tồn trong cùng transaction DB → Approved → Audit Log.
+Alternative	Tồn không đủ: từ chối duyệt; tồn không đổi.
+Exception	Phiếu đã duyệt: không tạo transaction lần 2.
+Success guarantee	Tồn giảm đúng số lượng và không âm.
+
+Trường	Nội dung
+Goal	Đưa tồn hệ thống về đúng tồn thực tế bằng quy trình kiểm kê có kiểm soát.
+Primary actor	ACT-02 / ACT-03
+Preconditions	Quản lý mở đợt kiểm kê; SKU thuộc phạm vi kiểm kê.
+Main flow	Quản lý tạo đợt → Nhân viên nhập actual_qty → hệ thống tính difference → Quản lý xem chênh lệch → nhập lý do → duyệt điều chỉnh → StockTransaction → cập nhật tồn → đóng đợt.
+Alternative	Difference = 0: không cần tạo điều chỉnh cho SKU đó.
+Exception	Thiếu lý do, chưa hoàn tất kiểm kê hoặc không có quyền: không cho duyệt.
+Success guarantee	Tồn mới = tồn cũ + difference và có lịch sử truy vết.
+
+Trường	Nội dung
+Goal	Xác thực người dùng và giới hạn chức năng theo đúng 3 role.
+Primary actor	ACT-01..03
+Main flow	Nhập thông tin → xác thực → tải role → tạo session → hiển thị chức năng tương ứng.
+RBAC	Admin: User/Role/Audit; Quản lý: master data + approve + stocktake + report; Nhân viên: create/view/stocktake input.
+Security exception	Gọi trực tiếp API không có quyền vẫn phải trả Forbidden và ghi log nếu là sự kiện bảo mật.
+
+2.4 Business Rules phát hiện từ Use Case
+Rule ID	Phát biểu quy tắc	Áp dụng	Cách kiểm chứng
+BR-01	SKU phải duy nhất.	UC-02	Unique constraint / Test
+BR-02	Chỉ phiếu Approved mới làm thay đổi tồn.	UC-06,08	Integration test
+BR-03	Không duyệt xuất nếu quantity > tồn khả dụng.	UC-08	TC-002
+BR-04	Phiếu Approved không được sửa trực tiếp.	UC-06,08	Authorization test
+BR-05	Điều chỉnh bắt buộc có lý do và người duyệt.	UC-13	TC-011
+BR-06	Mọi biến động tồn lưu user, timestamp, source.	UC-06,08,13	Audit review
+BR-07	quantity <= min_stock thì tạo cảnh báo.	UC-14	TC-009
+BR-08	SKU đã có giao dịch chỉ được khóa, không xóa vật lý.	UC-02	Data integrity test
+BR-09	Không cho tồn âm.	UC-08,13	DB/service validation
+BR-10	Đợt kiểm kê chỉ đóng khi các chênh lệch đã xử lý.	UC-11..13	TC-013
+BR-11	Người tạo phiếu không được tự duyệt chính phiếu đó.	UC-06,08	RBAC test
+BR-12	Không role nào được xóa chứng từ Approved/StockTransaction.	UC-06,08,13	Security test
+
+
+3. User Story và Acceptance Criteria
+3.1 Cấu trúc backlog
+Cấp	Mục đích	Quy mô gợi ý	Ví dụ mã
+Epic	Kết quả lớn, bao phủ nhiều chức năng	Nhiều sprint	EPIC-01
+Feature	Nhóm năng lực có giá trị	1–3 sprint	FEAT-03
+User Story	Lát cắt có thể kiểm thử	Trong một sprint	US-004
+Task	Công việc kỹ thuật	≤ 1–2 ngày	TASK-018
+
+Epic đề xuất: EPIC-01 Quản trị & phân quyền; EPIC-02 Danh mục kho; EPIC-03 Nhập kho; EPIC-04 Xuất kho; EPIC-05 Tồn & truy vết; EPIC-06 Kiểm kê & điều chỉnh; EPIC-07 Báo cáo & cảnh báo.
+ID	Epic / Feature	User Story	Priority	Est.	Status
+US-001	EPIC-01	Là Admin, tôi muốn tạo/khóa tài khoản và gán role để kiểm soát truy cập.	Must	3	Ready
+US-002	EPIC-01	Là người dùng, tôi muốn đăng nhập an toàn để chỉ thấy chức năng mình được phép.	Must	3	Ready
+US-003	EPIC-02	Là Quản lý kho, tôi muốn quản lý SKU để danh mục thống nhất.	Must	5	Ready
+US-004	EPIC-02	Là Quản lý kho, tôi muốn cấu hình kho và ngưỡng tồn để kiểm soát cảnh báo.	Must	5	Ready
+US-005	EPIC-03	Là Nhân viên kho, tôi muốn tạo phiếu nhập để ghi nhận hàng thực nhận.	Must	5	Ready
+US-006	EPIC-03	Là Quản lý kho, tôi muốn duyệt phiếu nhập để chỉ hàng hợp lệ mới tăng tồn.	Must	5	Ready
+US-007	EPIC-04	Là Nhân viên kho, tôi muốn tạo phiếu xuất để ghi nhận hàng giao.	Must	5	Ready
+US-008	EPIC-04	Là Quản lý kho, tôi muốn duyệt phiếu xuất và hệ thống chặn vượt tồn.	Must	8	Ready
+US-009	EPIC-05	Là Nhân viên kho, tôi muốn tra cứu tồn theo SKU/kho.	Must	3	Ready
+US-010	EPIC-05	Là Quản lý kho, tôi muốn xem lịch sử biến động để truy vết.	Must	5	Ready
+US-011	EPIC-06	Là Quản lý kho, tôi muốn mở đợt kiểm kê để tổ chức đối chiếu.	Must	5	Ready
+US-012	EPIC-06	Là Nhân viên kho, tôi muốn nhập số thực tế để hệ thống tính chênh lệch.	Must	5	Ready
+US-013	EPIC-06	Là Quản lý kho, tôi muốn duyệt điều chỉnh có lý do để xử lý chênh lệch.	Must	8	Ready
+US-014	EPIC-07	Là Nhân viên/Quản lý, tôi muốn thấy cảnh báo tồn thấp để biết SKU cần chú ý.	Should	3	Ready
+US-015	EPIC-07	Là Quản lý kho, tôi muốn xem/xuất báo cáo NXT theo kỳ.	Must	5	Ready
+US-016	EPIC-01	Là Admin/Quản lý, tôi muốn xem Audit Log để truy vết thao tác nhạy cảm.	Must	5	Ready
+
+3.2 Biểu mẫu User Story chi tiết
+Trường	US-008 · Duyệt phiếu xuất và chặn vượt tồn
+Statement	Là Quản lý kho, tôi muốn duyệt phiếu xuất sau khi hệ thống kiểm tra tồn để không xảy ra tồn âm.
+Context / Notes	Đây là story rủi ro nghiệp vụ cao vì tác động trực tiếp đến Inventory.
+Related Use Case	UC-07, UC-08
+Dependencies	Inventory, GoodsIssue, IssueDetail, StockTransaction, RBAC
+Data involved	ENT-Inventory, ENT-GoodsIssue, ENT-IssueDetail, ENT-StockTransaction
+NFR applicable	NFR-01 hiệu năng, NFR-02 nhất quán, NFR-03 phân quyền, NFR-04 truy vết
+Out of scope	Không tự động đặt hàng; không xử lý giao vận.
+
+Trường	US-013 · Duyệt điều chỉnh tồn
+Statement	Là Quản lý kho, tôi muốn duyệt chênh lệch kiểm kê có lý do để đưa tồn hệ thống về tồn thực tế.
+Context / Notes	Chỉ được điều chỉnh sau khi actual_qty đã được nhập và difference được tính.
+Related Use Case	UC-11, UC-12, UC-13
+Dependencies	Stocktake, StocktakeDetail, Inventory, StockTransaction
+Data involved	ENT-Stocktake, ENT-StocktakeDetail, ENT-Inventory, ENT-StockTransaction
+NFR applicable	NFR-02 nhất quán, NFR-03 phân quyền, NFR-04 truy vết
+Out of scope	Không sửa quantity trực tiếp trong bảng Inventory.
+
+3.3 Acceptance Criteria theo Given–When–Then
+AC ID	Scenario	Given	When	Then
+US-005/AC-01	Happy path	Nhân viên đăng nhập; SKU hợp lệ	Lưu phiếu nhập	Sinh mã phiếu + PENDING; tồn chưa đổi
+US-006/AC-01	Approval	Phiếu nhập PENDING	Quản lý bấm Duyệt	APPROVED; tồn tăng đúng một lần; có transaction
+US-008/AC-01	Validation	Tồn khả dụng = 10	Duyệt phiếu xuất 12	Bị chặn; tồn không đổi
+US-008/AC-02	SoD	Nhân viên A tạo phiếu	Nhân viên A bấm Duyệt	403/Forbidden; không đổi tồn
+US-012/AC-01	Stocktake	Có system_qty = 100	Nhập actual_qty = 97	difference = -3
+US-013/AC-01	Adjustment	difference = -3; có lý do	Quản lý duyệt	Tồn giảm 3; tạo transaction điều chỉnh
+US-013/AC-02	Validation	difference != 0; không có lý do	Duyệt	Bị từ chối
+US-014/AC-01	Alert	quantity = 5; min_stock = 10	Hệ thống kiểm tra	SKU được đánh dấu LOW_STOCK
+US-015/AC-01	Report	Có giao dịch trong kỳ	Quản lý chạy NXT	Tồn cuối = tồn đầu + nhập - xuất +/- điều chỉnh
+US-016/AC-01	Audit	Có thao tác duyệt	Thao tác hoàn tất	Log có user, action, timestamp, reference
+
+3.4 Definition of Ready / Definition of Done
+Definition of Ready	Definition of Done
+Actor và giá trị rõ	Code review và test đạt
+AC có thể kiểm thử	AC và NFR đã xác minh
+Phụ thuộc đã biết	Database/API/docs cập nhật
+Dữ liệu đầu vào xác định	Không còn lỗi Blocker/Critical
+Có tiêu chí nghiệm thu	Được nhóm/giảng viên review
+
+
+4. Functional Requirements và Non-Functional Requirements
+4.1 Functional Requirements (FR)
+FR ID	Tên	Requirement	Source	Priority	Verification	Status
+FR-001	Đăng nhập và RBAC	Xác thực tài khoản và giới hạn chức năng theo 3 role.	UC-01,US-002	Must	Test	Draft
+FR-002	Quản lý User	Admin tạo/sửa/khóa tài khoản và gán role.	UC-01,US-001	Must	Test	Draft
+FR-003	Quản lý SKU	Tạo/sửa/khóa SKU; SKU không trùng.	UC-02,US-003	Must	Test	Draft
+FR-004	Quản lý kho	Tạo/sửa/khóa kho hoạt động.	UC-03,US-004	Must	Test	Draft
+FR-005	Thiết lập ngưỡng	Đặt min_stock theo SKU/kho.	UC-04,US-004	Should	Test	Draft
+FR-006	Tạo phiếu nhập	Tạo header/detail, trạng thái PENDING.	UC-05,US-005	Must	Test	Draft
+FR-007	Duyệt nhập	Approved thì tăng tồn và ghi transaction.	UC-06,US-006	Must	Test	Draft
+FR-008	Tạo phiếu xuất	Tạo chứng từ với SKU và quantity.	UC-07,US-007	Must	Test	Draft
+FR-009	Kiểm tra tồn	Chặn duyệt nếu quantity > tồn khả dụng.	UC-08,US-008	Must	Test	Draft
+FR-010	Duyệt xuất	Giảm tồn đúng quantity và ghi transaction.	UC-08,US-008	Must	Test	Draft
+FR-011	Tra cứu tồn	Lọc theo SKU/kho/danh mục.	UC-09,US-009	Must	Test	Draft
+FR-012	Lịch sử biến động	Hiển thị before/change/after/source/user/time.	UC-10,US-010	Must	Test	Draft
+FR-013	Tạo kiểm kê	Tạo đợt theo kho và phạm vi SKU.	UC-11,US-011	Must	Test	Draft
+FR-014	Ghi nhận kiểm kê	Lưu actual_qty và tự tính difference.	UC-12,US-012	Must	Test	Draft
+FR-015	Duyệt điều chỉnh	Điều chỉnh tồn sau khi có lý do và duyệt.	UC-13,US-013	Must	Test	Draft
+FR-016	Cảnh báo tồn thấp	Đánh dấu SKU khi quantity <= min_stock.	UC-14,US-014	Must	Test	Draft
+FR-017	Báo cáo NXT	Tính tồn đầu, nhập, xuất, điều chỉnh, tồn cuối.	UC-15,US-015	Must	Test	Draft
+FR-018	Xuất báo cáo	Xuất Excel/PDF theo bộ lọc.	UC-15,US-015	Should	Test	Draft
+FR-019	Audit Log	Ghi tạo/sửa/duyệt/từ chối/điều chỉnh và thay đổi quyền.	UC-01..15,US-016	Must	Audit review	Draft
+
+4.2 Non-Functional Requirements (NFR)
+NFR ID	Yêu cầu	Tiêu chí kiểm chứng
+NFR-01	Hiệu năng: tra cứu tồn < 3 giây với dữ liệu đồ án.	Load/performance test
+NFR-02	Nhất quán: duyệt một phiếu chỉ cập nhật tồn một lần; update tồn + transaction trong cùng DB transaction.	Integration/concurrency test
+NFR-03	Phân quyền: không có quyền thì không thể thực hiện nghiệp vụ nhạy cảm cả ở UI và API.	Security/RBAC test
+NFR-04	Truy vết: giao dịch có user + timestamp + source/reference.	Audit review
+NFR-05	Usability: form kiểm tra số lượng > 0, SKU tồn tại và hiển thị lỗi ngay khi nhập.	UI validation test
+NFR-06	Backup: có cơ chế sao lưu định kỳ và kiểm thử restore.	Restore test
+NFR-07	Responsive: sử dụng được trên desktop/tablet.	UI review
+
+
+5. Domain Data
+Mô hình dữ liệu ưu tiên tính nhất quán và truy vết. Inventory là trạng thái hiện tại; StockTransaction là lịch sử bất biến của biến động.
+Entity	Thuộc tính chính	Quan hệ / Ý nghĩa
+ENT-User	user_id, username, password_hash, role_id, status	Role 1-N User
+ENT-Role	role_id, role_name	1-N User
+ENT-Category	category_id, name, status	1-N Product
+ENT-Product	product_id, sku, name, category_id, unit, status	Category 1-N Product
+ENT-Warehouse	warehouse_id, code, name, status	1-N Inventory
+ENT-Inventory	warehouse_id, product_id, quantity, min_stock	Warehouse N-N Product; UNIQUE(warehouse_id,product_id)
+ENT-Supplier	supplier_id, code, name, phone, status	1-N GoodsReceipt
+ENT-GoodsReceipt	receipt_id, warehouse_id, supplier_id, status, created_by, approved_by, timestamps	1-N ReceiptDetail
+ENT-ReceiptDetail	receipt_id, product_id, quantity, unit_cost	N-1 Product
+ENT-GoodsIssue	issue_id, warehouse_id, status, created_by, approved_by, timestamps	1-N IssueDetail
+ENT-IssueDetail	issue_id, product_id, quantity	N-1 Product
+ENT-Stocktake	stocktake_id, warehouse_id, status, created_by, approved_by	1-N StocktakeDetail
+ENT-StocktakeDetail	stocktake_id, product_id, system_qty, actual_qty, difference	N-1 Product
+ENT-StockTransaction	transaction_id, warehouse_id, product_id, type, before_qty, change_qty, after_qty, reference_type, reference_id, created_by, created_at	Lịch sử biến động bất biến
+ENT-AuditLog	log_id, user_id, action, entity_type, entity_id, metadata, created_at	Truy vết thao tác
+
+5.1 Trạng thái chứng từ
+Đối tượng	Trạng thái	Ý nghĩa
+GoodsReceipt / GoodsIssue	DRAFT	Đang soạn; chưa ảnh hưởng tồn
+GoodsReceipt / GoodsIssue	PENDING	Chờ Quản lý kho duyệt
+GoodsReceipt / GoodsIssue	APPROVED	Đã duyệt; đã ảnh hưởng tồn
+GoodsReceipt / GoodsIssue	REJECTED	Bị từ chối; tồn không đổi
+Stocktake	OPEN	Đang nhập kết quả kiểm kê
+Stocktake	REVIEW	Có chênh lệch cần xử lý
+Stocktake	CLOSED	Đã xử lý toàn bộ chênh lệch
+
+5.2 Data integrity
+UNIQUE(Product.sku).
+UNIQUE(Inventory.warehouse_id, Inventory.product_id).
+quantity, actual_qty, change_qty phải là số hợp lệ; quantity không được âm.
+Foreign key bắt buộc giữa chứng từ và chi tiết.
+Không DELETE vật lý StockTransaction/AuditLog.
+Approved receipt/issue không được update quantity trực tiếp.
+Approval endpoint phải kiểm tra trạng thái hiện tại để tránh double-submit.
+5.3 Index, query và dung lượng
+Use Case	Filter/Sort	Index đề xuất	Mục đích
+UC-09 Tra cứu tồn	warehouse_id, product_id	(warehouse_id, product_id)	Tăng tốc lookup tồn
+UC-15 Báo cáo	warehouse_id, created_at	(warehouse_id, created_at)	Range scan giao dịch
+UC-02 Tra cứu SKU	sku	UNIQUE(sku)	Đảm bảo duy nhất
+UC-10 Lịch sử	product_id, created_at	(product_id, created_at)	Truy vết nhanh
+
+
+6. System Design
+6.1 Architecture drivers và constraints
+Driver ID	Driver / Constraint	Source	Design impact	Evidence
+DRV-01	Không được âm tồn	BR-03,BR-09	Transaction + locking/validation	TC-002
+DRV-02	RBAC 3 role	NFR-03	Auth middleware + policy	TC-RBAC
+DRV-03	Tra cứu tồn nhanh	NFR-01	Index + pagination	TC-017
+DRV-04	Truy vết giao dịch	BR-06,NFR-04	StockTransaction + AuditLog	TC-014
+DRV-05	Không double approval	BR-02	Idempotency/status check	TC-004
+
+6.2 System Context Diagram
+Mô tả sơ đồ để vẽ trong báo cáo: ACT-01, ACT-02, ACT-03 ↔ Web Application ↔ Application/API ↔ Relational Database. Email/Notification có thể là hệ thống phụ trợ tùy chọn cho cảnh báo, nhưng không tạo thêm role.
+External actor/system	Purpose	Data exchanged	Trust boundary
+Admin	Quản trị tài khoản/quyền	User, Role, Permission, AuditLog	Internal
+Quản lý kho	Duyệt và giám sát kho	Receipt, Issue, Inventory, Stocktake, Report	Internal
+Nhân viên kho	Tác nghiệp kho	Product, Receipt, Issue, Stocktake	Internal
+Notification Service (optional)	Gửi cảnh báo tồn thấp	Alert message	External
+
+6.3 Container / Layer Design
+Layer	Component	Trách nhiệm
+Presentation	Web UI	Form, danh sách SKU, tồn, chứng từ, kiểm kê, báo cáo
+Application	AuthService	Login, session/token, RBAC
+Application	InventoryService	Tra cứu tồn, tính cảnh báo
+Application	ReceiptService	Tạo/duyệt phiếu nhập
+Application	IssueService	Tạo/duyệt phiếu xuất
+Application	StocktakeService	Mở kỳ, nhập actual, tính difference, điều chỉnh
+Application	ReportService	NXT, export
+Domain	Stock Rules + Approval Rules	BR-01..12
+Data	Relational DB	Master data, chứng từ, Inventory, transactions, audit
+
+6.4 Sequence – Duyệt phiếu xuất
+Bước	Actor / Component	Xử lý
+1	Nhân viên	Tạo GoodsIssue → PENDING
+2	Quản lý	Mở phiếu và yêu cầu duyệt
+3	API/IssueService	Kiểm tra role + trạng thái PENDING
+4	InventoryService	Đọc tồn khả dụng; nếu quantity > tồn → reject
+5	DB Transaction	Khóa/kiểm tra bản ghi tồn; ghi StockTransaction
+6	DB Transaction	Cập nhật Inventory: before - quantity = after
+7	IssueService	Chuyển APPROVED
+8	AuditService	Ghi AuditLog
+9	UI	Thông báo thành công; hiển thị tồn mới
+
+6.5 Sequence – Kiểm kê và điều chỉnh
+Bước	Actor / Component	Xử lý
+1	Quản lý	Tạo Stocktake OPEN theo kho/phạm vi SKU
+2	Nhân viên	Nhập actual_qty cho từng SKU
+3	StocktakeService	Lấy system_qty và tính difference = actual - system
+4	Quản lý	Xem các dòng chênh lệch
+5	Quản lý	Nhập lý do điều chỉnh
+6	API	Kiểm tra quyền + lý do + trạng thái
+7	DB Transaction	Ghi StockTransaction adjustment
+8	DB Transaction	Cập nhật Inventory
+9	StocktakeService	Đánh dấu dòng đã xử lý; đóng đợt khi không còn chênh lệch chưa xử lý
+10	AuditService	Ghi AuditLog
+
+6.6 RBAC – 3 Role
+Chức năng	Admin	Quản lý kho	Nhân viên kho	Nguyên tắc
+Đăng nhập	✓	✓	✓	Tài khoản Active
+Quản lý User/Role	✓	—	—	Chỉ Admin
+Xem Audit Log	✓	✓	—	Truy vết
+Quản lý SKU/kho	—	✓	—	Business owner
+Thiết lập min_stock	—	✓	—	Quản lý
+Tạo phiếu nhập	—	✓	✓	Nhân viên tác nghiệp
+Duyệt phiếu nhập	—	✓	—	SoD
+Tạo phiếu xuất	—	✓	✓	Nhân viên tác nghiệp
+Duyệt phiếu xuất	—	✓	—	SoD + kiểm tra tồn
+Tra cứu tồn	—	✓	✓	Theo phạm vi kho
+Tạo đợt kiểm kê	—	✓	—	Quản lý mở kỳ
+Nhập actual_qty	—	✓	✓	Nhân viên đếm
+Duyệt điều chỉnh	—	✓	—	Lý do bắt buộc
+Cảnh báo tồn thấp	—	✓	✓	Read/view
+Báo cáo NXT	—	✓	—	Báo cáo quản trị
+Xóa chứng từ Approved	—	—	—	Không role nào được xóa vật lý
+
+6.7 Nguyên tắc phân quyền sâu
+Least Privilege: mỗi role chỉ có quyền tối thiểu cần thiết.
+Segregation of Duties: người tạo phiếu không được tự duyệt chính phiếu.
+Authorization ở cả UI và API; không dựa vào việc ẩn nút trên giao diện.
+Admin không có quyền nghiệp vụ mặc định làm thay đổi tồn.
+Quản lý kho không có quyền quản lý User/Role.
+Nhân viên kho không được điều chỉnh tồn hoặc duyệt chứng từ.
+Chứng từ Approved và StockTransaction không xóa vật lý.
+Audit mọi thao tác tạo/sửa/duyệt/từ chối/điều chỉnh/thay đổi quyền.
+
+7. Traceability & Test
+7.1 Ma trận truy vết
+Goal	Use Case	User Story	FR	Test
+GOAL-01	UC-05..08	US-005..008	FR-006..010	TC-001..006
+GOAL-02	UC-09,10	US-009,010	FR-011,012	TC-007..010
+GOAL-03	UC-11..13	US-011..013	FR-013..015	TC-011..014
+GOAL-04	UC-04,14	US-004,014	FR-005,016	TC-015
+GOAL-05	UC-01,06,08,13	US-001,016	FR-019	TC-016..018
+GOAL-06	UC-01	US-001,002	FR-001,002	TC-RBAC-01..08
+GOAL-02	UC-15	US-015	FR-017,018	TC-019..020
+
+7.2 Test Cases trọng tâm
+TC	Kịch bản	Expected
+TC-001	Duyệt nhập hợp lệ	Tồn tăng đúng một lần
+TC-002	Xuất vượt tồn	Bị chặn; tồn không đổi
+TC-003	Duyệt xuất hợp lệ	Tồn giảm đúng quantity
+TC-004	Duyệt phiếu lần 2	Không tạo transaction lần 2
+TC-005	SKU trùng	Không cho lưu
+TC-006	Người không có quyền duyệt	Bị từ chối
+TC-007	Tra cứu tồn	Kết quả đúng theo SKU/kho
+TC-008	Lịch sử SKU	Có source, before/after, user, time
+TC-009	Cảnh báo min_stock	SKU <= ngưỡng được đánh dấu
+TC-010	Tồn âm	Giao dịch làm tồn âm bị chặn
+TC-011	Kiểm kê	Difference đúng = actual - system
+TC-012	Điều chỉnh thiếu lý do	Bị từ chối
+TC-013	Điều chỉnh hợp lệ	Tồn cập nhật đúng + transaction
+TC-014	Đóng kiểm kê còn chênh lệch	Không cho đóng
+TC-015	Báo cáo NXT	Tồn cuối đúng công thức
+TC-016	Audit Log	Đủ user/action/time/reference
+TC-017	Admin thử duyệt phiếu	Bị chặn
+TC-018	Nhân viên tự duyệt	Bị chặn
+TC-019	Xuất Excel/PDF	Đúng bộ lọc
+TC-020	Hiệu năng	Tra cứu đạt NFR-01
+
+7.3 Test phân quyền chi tiết
+TC	Role	Kịch bản	Expected
+TC-RBAC-01	Nhân viên kho	Tạo phiếu xuất rồi tự bấm Duyệt	403/không có quyền; tồn không đổi
+TC-RBAC-02	Quản lý kho	Duyệt xuất khi tồn không đủ	Bị chặn; không tạo transaction
+TC-RBAC-03	Admin	Truy cập endpoint duyệt nhập	Forbidden
+TC-RBAC-04	Nhân viên kho	Mở quản lý User	Forbidden
+TC-RBAC-05	Quản lý kho	Điều chỉnh tồn không có lý do	Validation fail
+TC-RBAC-06	Nhân viên kho	Sửa phiếu Approved	Không cho sửa
+TC-RBAC-07	Admin	Khóa tài khoản nhân viên	Tài khoản không đăng nhập được
+TC-RBAC-08	Quản lý kho	Xuất báo cáo NXT	Thành công trong phạm vi được phép
+
+
+Biểu đồ UML
+Các biểu đồ dưới đây được xây dựng từ phạm vi nghiệp vụ, actor và workflow được mô tả trong tài liệu này.
+1. Use Case Diagram
+ 
+2. Sequence Diagram - Duyệt phiếu xuất
+ 
+3. State Machine Diagram - Vòng đời chứng từ
+ 
+Ghi chú: workflow kiểm kê/điều chỉnh được mô tả trong tài liệu theo chuỗi mở đợt → nhập số thực tế → tính chênh lệch → nhập lý do → duyệt điều chỉnh → cập nhật tồn → đóng đợt.
+
+
+
+
+
+
+
+
+
+
+
+8. Kết luận
+Hệ thống Quản lý Kho Hàng được giới hạn còn 3 role và 4 nhóm nghiệp vụ cốt lõi: danh mục; nhập/xuất và tồn; kiểm kê/điều chỉnh; báo cáo/phân quyền.
+Điểm nhấn của thiết kế là workflow có kiểm soát: Nhân viên tạo → Chờ duyệt → Quản lý kiểm tra → Approved → StockTransaction → Inventory. Vì vậy tồn kho không bị thay đổi bởi thao tác nhập liệu đơn thuần.
+Workflow kiểm kê cũng được tách rõ: mở đợt → nhập số thực tế → tính chênh lệch → nhập lý do → duyệt điều chỉnh → cập nhật tồn → đóng đợt.
+Mô hình 3 role đủ để đi sâu vào RBAC, Least Privilege, Segregation of Duties, quyền theo trạng thái chứng từ và Audit Log mà không phải mở rộng sang mua hàng, bán hàng, vận chuyển hoặc kế toán.
+Cấu trúc tài liệu bám theo mẫu BTL được cung cấp: Bối cảnh/Mục tiêu/Phạm vi → Actor → Use Case → User Story → Acceptance Criteria → FR/NFR → Business Rules → Domain Data → System Design → Traceability → Test.

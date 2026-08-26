@@ -1,0 +1,19 @@
+## Build output
+bin/
+obj/
+
+## Local database and runtime files
+*.db
+*.db-shm
+*.db-wal
+
+## IDE and user-specific files
+.vs/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+*.user
+*.suo
+
+## Logs and temporary files
+*.log
