@@ -69,16 +69,63 @@ public sealed class InventoryService(WarehouseDbContext db)
         var query = db.Inventories.AsNoTracking().Include(x => x.Product).AsQueryable();
         if (warehouseId.HasValue) query = query.Where(x => x.WarehouseId == warehouseId.Value);
         if (!string.IsNullOrWhiteSpace(sku)) query = query.Where(x => x.Product!.Sku == sku);
-        return query.OrderBy(x => x.Product!.Sku).Select(x => new InventoryView(x.WarehouseId, x.Product!.Sku, x.Product.Name, x.Quantity, x.MinStock, x.Quantity <= x.MinStock)).ToListAsync();
+        return query.OrderBy(x => x.Product!.Sku).Select(x => new InventoryView(x.WarehouseId, x.ProductId, x.Product!.Sku, x.Product.Name, x.Quantity, x.MinStock, x.Quantity <= x.MinStock)).ToListAsync();
     }
 
     public Task<List<StockTransaction>> GetTransactionsAsync(int? warehouseId, int? productId) =>
         db.StockTransactions.AsNoTracking().Where(x => !warehouseId.HasValue || x.WarehouseId == warehouseId.Value).Where(x => !productId.HasValue || x.ProductId == productId.Value).OrderByDescending(x => x.CreatedAt).Take(200).ToListAsync();
 
     public Task<List<Product>> GetProductsAsync() => db.Products.AsNoTracking().Where(x => x.IsActive).OrderBy(x => x.Sku).ToListAsync();
+    public Task<List<Category>> GetCategoriesAsync() => db.Categories.AsNoTracking().Where(x => x.IsActive).OrderBy(x => x.Name).ToListAsync();
     public Task<List<Warehouse>> GetWarehousesAsync() => db.Warehouses.AsNoTracking().Where(x => x.IsActive).OrderBy(x => x.Code).ToListAsync();
     public Task<List<Receipt>> GetPendingReceiptsAsync() => db.Receipts.AsNoTracking().Include(x => x.Lines).Where(x => x.Status == DocumentStatus.Pending).OrderByDescending(x => x.CreatedAt).ToListAsync();
     public Task<List<Issue>> GetPendingIssuesAsync() => db.Issues.AsNoTracking().Include(x => x.Lines).Where(x => x.Status == DocumentStatus.Pending).OrderByDescending(x => x.CreatedAt).ToListAsync();
+
+    public async Task RejectReceiptAsync(int id, int userId, string reason) => await RejectDocumentAsync(await db.Receipts.SingleOrDefaultAsync(x => x.Id == id), userId, reason, "GoodsReceipt");
+    public async Task RejectIssueAsync(int id, int userId, string reason) => await RejectDocumentAsync(await db.Issues.SingleOrDefaultAsync(x => x.Id == id), userId, reason, "GoodsIssue");
+
+    public async Task SetMinStockAsync(int warehouseId, int productId, int minStock)
+    {
+        if (minStock < 0) throw new InvalidOperationException("Tồn tối thiểu không được âm.");
+        var inventory = await db.Inventories.SingleOrDefaultAsync(x => x.WarehouseId == warehouseId && x.ProductId == productId) ?? throw new InvalidOperationException("SKU chưa được cấu hình trong kho.");
+        inventory.MinStock = minStock;
+        await db.SaveChangesAsync();
+    }
+
+    public async Task<User> SaveUserAsync(int? id, string username, string password, UserRole role, bool active)
+    {
+        if (string.IsNullOrWhiteSpace(username)) throw new InvalidOperationException("Username không được để trống.");
+        var user = id.HasValue ? await db.Users.FindAsync(id.Value) ?? throw new InvalidOperationException("Không tìm thấy User.") : new User();
+        if (!id.HasValue) db.Users.Add(user);
+        user.Username = username.Trim(); user.Role = role; user.IsActive = active;
+        if (!string.IsNullOrWhiteSpace(password)) user.PasswordHash = WarehouseDbContext.Hash(password);
+        await db.SaveChangesAsync(); return user;
+    }
+
+    public async Task<Product> SaveProductAsync(int? id, string sku, string name, string unit, int? categoryId, bool active)
+    {
+        if (await db.Products.AnyAsync(x => x.Sku == sku.Trim() && x.Id != id)) throw new InvalidOperationException("SKU đã tồn tại.");
+        var product = id.HasValue ? await db.Products.FindAsync(id.Value) ?? throw new InvalidOperationException("Không tìm thấy SKU.") : new Product();
+        if (!id.HasValue) db.Products.Add(product);
+        product.Sku = sku.Trim(); product.Name = name.Trim(); product.Unit = unit.Trim(); product.CategoryId = categoryId; product.IsActive = active;
+        await db.SaveChangesAsync(); return product;
+    }
+
+    public async Task<Category> SaveCategoryAsync(int? id, string name, bool active)
+    {
+        var category = id.HasValue ? await db.Categories.FindAsync(id.Value) ?? throw new InvalidOperationException("Không tìm thấy danh mục.") : new Category();
+        if (!id.HasValue) db.Categories.Add(category);
+        category.Name = name.Trim(); category.IsActive = active;
+        await db.SaveChangesAsync(); return category;
+    }
+
+    public async Task<Warehouse> SaveWarehouseAsync(int? id, string code, string name, bool active)
+    {
+        var warehouse = id.HasValue ? await db.Warehouses.FindAsync(id.Value) ?? throw new InvalidOperationException("Không tìm thấy kho.") : new Warehouse();
+        if (!id.HasValue) db.Warehouses.Add(warehouse);
+        warehouse.Code = code.Trim(); warehouse.Name = name.Trim(); warehouse.IsActive = active;
+        await db.SaveChangesAsync(); return warehouse;
+    }
 
     public async Task<Stocktake> CreateStocktakeAsync(int warehouseId, int userId, IReadOnlyCollection<int>? productIds)
     {
@@ -160,8 +207,17 @@ public sealed class InventoryService(WarehouseDbContext db)
     private static void ValidateLines(IEnumerable<MovementLine> lines) { if (!lines.Any() || lines.Any(x => x.Quantity <= 0)) throw new InvalidOperationException("Danh sách SKU không được rỗng và số lượng phải lớn hơn 0."); }
     private static void EnsurePending(DocumentStatus status) { if (status != DocumentStatus.Pending) throw new InvalidOperationException("Chứng từ không ở trạng thái chờ duyệt."); }
     private static void EnsureNotSelfApproval(int creatorId, int approverId) { if (creatorId == approverId) throw new InvalidOperationException("Người tạo không được tự duyệt chứng từ."); }
+    private async Task RejectDocumentAsync<T>(T? document, int userId, string reason, string type) where T : class
+    {
+        if (string.IsNullOrWhiteSpace(reason)) throw new InvalidOperationException("Lý do từ chối là bắt buộc.");
+        if (document is Receipt receipt) { EnsurePending(receipt.Status); receipt.Status = DocumentStatus.Rejected; receipt.RejectionReason = reason.Trim(); }
+        else if (document is Issue issue) { EnsurePending(issue.Status); issue.Status = DocumentStatus.Rejected; issue.RejectionReason = reason.Trim(); }
+        else throw new InvalidOperationException("Không tìm thấy chứng từ.");
+        db.AuditLogs.Add(new AuditLog { UserId = userId, Action = "REJECT", EntityType = type, EntityId = document is Receipt r ? r.Id : ((Issue)(object)document).Id, Metadata = reason.Trim() });
+        await db.SaveChangesAsync();
+    }
 }
 
 public record MovementLine(int ProductId, int Quantity);
-public record InventoryView(int WarehouseId, string Sku, string ProductName, int Quantity, int MinStock, bool LowStock);
+public record InventoryView(int WarehouseId, int ProductId, string Sku, string ProductName, int Quantity, int MinStock, bool LowStock);
 public record ReportRow(string Sku, string ProductName, int OpeningQuantity, int ReceiptQuantity, int IssueQuantity, int AdjustmentQuantity, int ClosingQuantity);

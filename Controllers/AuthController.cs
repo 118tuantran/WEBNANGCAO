@@ -16,7 +16,12 @@ public sealed class AuthController(WarehouseDbContext db) : ControllerBase
     public async Task<IActionResult> Login(LoginRequest request)
     {
         var user = await db.Users.SingleOrDefaultAsync(x => x.Username == request.Username && x.IsActive);
-        if (user is null || user.PasswordHash != WarehouseDbContext.Hash(request.Password)) return Unauthorized(new { message = "Sai tài khoản hoặc mật khẩu." });
+        if (user is null || user.PasswordHash != WarehouseDbContext.Hash(request.Password))
+        {
+            db.AuditLogs.Add(new WarehouseManagement.Domain.AuditLog { UserId = user?.Id ?? 0, Action = "LOGIN_FAILED", EntityType = "User", EntityId = user?.Id ?? 0, Metadata = request.Username });
+            await db.SaveChangesAsync();
+            return Unauthorized(new { message = "Sai tài khoản hoặc mật khẩu." });
+        }
         var claims = new[] { new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()), new Claim(ClaimTypes.Name, user.Username), new Claim(ClaimTypes.Role, user.Role.ToString()) };
         await HttpContext.SignInAsync("WarehouseCookie", new ClaimsPrincipal(new ClaimsIdentity(claims, "WarehouseCookie")));
         return Ok(new { user.Username, role = user.Role.ToString() });

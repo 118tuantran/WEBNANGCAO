@@ -61,6 +61,11 @@ Content-Type: application/json
 - `POST /api/stocktakes/{id}/approve`: Quản lý duyệt điều chỉnh có lý do.
 - `GET /api/reports/in-out-stock?warehouseId=1`: báo cáo nhập - xuất - tồn.
 - `GET /api/admin/audit`: Admin xem audit log.
+- `GET /api/reports/export/excel?warehouseId=1`: tải báo cáo Excel.
+- `GET /api/reports/export/pdf?warehouseId=1`: tải báo cáo PDF.
+- `POST /api/warehouse/receipts/{id}/reject`: từ chối phiếu nhập kèm lý do.
+- `POST /api/warehouse/issues/{id}/reject`: từ chối phiếu xuất kèm lý do.
+- `PUT /api/warehouse/inventory/min-stock`: cập nhật tồn tối thiểu.
 
 Body tạo phiếu:
 
@@ -85,6 +90,7 @@ Body tạo phiếu:
 
 ```powershell
 dotnet build
+dotnet test .\Tests\WarehouseManagement.Tests.csproj
 ```
 
 Lưu ý: restore hiện cảnh báo advisory từ dependency `SQLitePCLRaw.lib.e_sqlite3` do phiên bản native mà EF Core SQLite kéo theo.
@@ -102,7 +108,10 @@ Lưu ý: restore hiện cảnh báo advisory từ dependency `SQLitePCLRaw.lib.e
 | `Controllers/StocktakeController.cs` | API mở kỳ, nhập đếm và duyệt điều chỉnh kiểm kê. |
 | `Controllers/ReportController.cs` | API báo cáo nhập - xuất - tồn. |
 | `Controllers/AdminController.cs` | API danh mục, kho và audit log cho Admin. |
+| `Controllers/ExportController.cs` | Xuất báo cáo NXT thành Excel/PDF. |
 | `wwwroot/index.html` | Giao diện web responsive: đăng nhập, tồn kho, phê duyệt, kiểm kê, báo cáo, audit. |
+| `Tests/InventoryWorkflowTests.cs` | 20 test tự động đối chiếu TC-001 đến TC-020. |
+| `Tests/WarehouseManagement.Tests.csproj` | Project test xUnit và EF Core InMemory. |
 | `New Text Document.txt` | Tài liệu phân tích nghiệp vụ nguồn của đề tài; giữ lại để đối chiếu yêu cầu. |
 | `warehouse.db` | SQLite database tạo tự động khi chạy, không cần commit vào source control. |
 

@@ -18,6 +18,9 @@ BTLWEB/
 |   `-- InventoryService.cs      # Luật tồn kho và workflow nghiệp vụ
 |-- wwwroot/
 |   `-- index.html               # Giao diện web responsive chạy tại `/`
+|-- Tests/
+|   |-- InventoryWorkflowTests.cs # TC-001 đến TC-020
+|   `-- WarehouseManagement.Tests.csproj # Project test xUnit
 |-- Program.cs                   # Điểm khởi động và cấu hình ứng dụng
 |-- WarehouseManagement.csproj   # Target framework và package NuGet
 |-- README.md                    # Hướng dẫn chạy, tài khoản, API
@@ -35,6 +38,7 @@ BTLWEB/
 - DbContext định nghĩa dữ liệu, index, khóa duy nhất và seed data.
 - `Inventory` là trạng thái hiện tại; `StockTransaction` là lịch sử bất biến.
 - Giao diện chỉ gọi API, không tự cập nhật số tồn.
+- `ClosedXML` tạo file Excel và `QuestPDF` tạo file PDF từ cùng dữ liệu báo cáo.
 
 ## Các nguyên tắc cần giữ
 

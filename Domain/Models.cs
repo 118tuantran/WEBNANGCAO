@@ -23,6 +23,15 @@ public sealed class Product
     public string Name { get; set; } = "";
     public string Unit { get; set; } = "";
     public bool IsActive { get; set; } = true;
+    public int? CategoryId { get; set; }
+    public Category? Category { get; set; }
+}
+
+public sealed class Category
+{
+    public int Id { get; set; }
+    public string Name { get; set; } = "";
+    public bool IsActive { get; set; } = true;
 }
 
 public sealed class Warehouse
@@ -54,6 +63,7 @@ public sealed class Receipt
     public int? ApprovedBy { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? ApprovedAt { get; set; }
+    public string? RejectionReason { get; set; }
     public List<ReceiptLine> Lines { get; set; } = [];
 }
 
@@ -75,6 +85,7 @@ public sealed class Issue
     public int? ApprovedBy { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? ApprovedAt { get; set; }
+    public string? RejectionReason { get; set; }
     public List<IssueLine> Lines { get; set; } = [];
 }
 
