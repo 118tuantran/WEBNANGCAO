@@ -15,6 +15,14 @@ public sealed class WarehouseController(InventoryService service) : ControllerBa
     [Authorize(Roles = "WarehouseManager,WarehouseStaff")]
     public async Task<IActionResult> Inventory([FromQuery] int? warehouseId, [FromQuery] string? sku) => Ok(await service.GetInventoryAsync(warehouseId, sku));
 
+    [HttpGet("products")]
+    [Authorize(Roles = "WarehouseManager,WarehouseStaff")]
+    public async Task<IActionResult> Products() => Ok(await service.GetProductsAsync());
+
+    [HttpGet("warehouses")]
+    [Authorize(Roles = "WarehouseManager,WarehouseStaff")]
+    public async Task<IActionResult> Warehouses() => Ok(await service.GetWarehousesAsync());
+
     [HttpGet("transactions")]
     [Authorize(Roles = "WarehouseManager,WarehouseStaff")]
     public async Task<IActionResult> Transactions([FromQuery] int? warehouseId, [FromQuery] int? productId) => Ok(await service.GetTransactionsAsync(warehouseId, productId));
