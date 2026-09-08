@@ -66,7 +66,7 @@ public sealed class InventoryService(WarehouseDbContext db)
 
     public Task<List<InventoryView>> GetInventoryAsync(int? warehouseId, string? sku)
     {
-        var query = db.Inventories.AsNoTracking().Include(x => x.Product).AsQueryable();
+        var query = db.Inventories.AsNoTracking().AsQueryable();
         if (warehouseId.HasValue) query = query.Where(x => x.WarehouseId == warehouseId.Value);
         if (!string.IsNullOrWhiteSpace(sku)) query = query.Where(x => x.Product!.Sku == sku);
         return query.OrderBy(x => x.Product!.Sku).Select(x => new InventoryView(x.WarehouseId, x.Product!.Sku, x.Product.Name, x.Quantity, x.MinStock, x.Quantity <= x.MinStock)).ToListAsync();
@@ -157,7 +157,7 @@ public sealed class InventoryService(WarehouseDbContext db)
         if (await db.Products.CountAsync(x => ids.Contains(x.Id) && x.IsActive) != ids.Length) throw new InvalidOperationException("SKU không tồn tại hoặc đã bị khóa.");
     }
     private async Task EnsureActiveWarehouseAsync(int id) { if (!await db.Warehouses.AnyAsync(x => x.Id == id && x.IsActive)) throw new InvalidOperationException("Kho không tồn tại hoặc đã bị khóa."); }
-    private static void ValidateLines(IEnumerable<MovementLine> lines) { if (!lines.Any() || lines.Any(x => x.Quantity <= 0)) throw new InvalidOperationException("Danh sách SKU không được rỗng và số lượng phải lớn hơn 0."); }
+    private static void ValidateLines(IReadOnlyCollection<MovementLine> lines) { if (lines.Count == 0 || lines.Any(x => x.Quantity <= 0)) throw new InvalidOperationException("Danh sách SKU không được rỗng và số lượng phải lớn hơn 0."); }
     private static void EnsurePending(DocumentStatus status) { if (status != DocumentStatus.Pending) throw new InvalidOperationException("Chứng từ không ở trạng thái chờ duyệt."); }
     private static void EnsureNotSelfApproval(int creatorId, int approverId) { if (creatorId == approverId) throw new InvalidOperationException("Người tạo không được tự duyệt chứng từ."); }
 }
