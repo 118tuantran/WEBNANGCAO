@@ -193,14 +193,35 @@ public sealed class InventoryService(WarehouseDbContext db)
         await transaction.CommitAsync();
     }
 
-    public async Task<List<ReportRow>> GetReportAsync(DateTime? from, DateTime? to, int? warehouseId)
+    public async Task<List<ReportRow>> GetReportAsync(DateTime? from, DateTime? to, int? warehouseId, CancellationToken cancellationToken = default)
     {
         var end = to?.Date.AddDays(1) ?? DateTime.UtcNow;
         var query = db.StockTransactions.AsNoTracking().Where(x => x.CreatedAt < end && (!warehouseId.HasValue || x.WarehouseId == warehouseId.Value));
         var inPeriod = query.Where(x => !from.HasValue || x.CreatedAt >= from.Value.Date);
-        var movements = await inPeriod.GroupBy(x => new { x.WarehouseId, x.ProductId }).Select(x => new { x.Key.WarehouseId, x.Key.ProductId, Receipt = x.Where(y => y.Type == MovementType.Receipt).Sum(y => y.ChangeQuantity), Issue = -x.Where(y => y.Type == MovementType.Issue).Sum(y => y.ChangeQuantity), Adjustment = x.Where(y => y.Type == MovementType.Adjustment).Sum(y => y.ChangeQuantity) }).ToListAsync();
-        var inventory = await db.Inventories.AsNoTracking().Include(x => x.Product).Where(x => !warehouseId.HasValue || x.WarehouseId == warehouseId.Value).ToListAsync();
-        return inventory.Join(movements, item => new { item.WarehouseId, item.ProductId }, change => new { change.WarehouseId, change.ProductId }, (item, change) => new ReportRow(item.Product!.Sku, item.Product.Name, item.Quantity - change.Receipt + change.Issue - change.Adjustment, change.Receipt, change.Issue, change.Adjustment, item.Quantity)).Concat(inventory.Where(item => !movements.Any(change => change.WarehouseId == item.WarehouseId && change.ProductId == item.ProductId)).Select(item => new ReportRow(item.Product!.Sku, item.Product.Name, item.Quantity, 0, 0, 0, item.Quantity))).OrderBy(x => x.Sku).ToList();
+        var movements = await inPeriod
+            .GroupBy(x => new { x.WarehouseId, x.ProductId })
+            .Select(x => new
+            {
+                x.Key.WarehouseId,
+                x.Key.ProductId,
+                Receipt = x.Where(y => y.Type == MovementType.Receipt).Sum(y => y.ChangeQuantity),
+                Issue = -x.Where(y => y.Type == MovementType.Issue).Sum(y => y.ChangeQuantity),
+                Adjustment = x.Where(y => y.Type == MovementType.Adjustment).Sum(y => y.ChangeQuantity)
+            })
+            .ToListAsync(cancellationToken);
+        var movementByItem = movements.ToDictionary(x => (x.WarehouseId, x.ProductId));
+        var inventory = await db.Inventories
+            .AsNoTracking()
+            .Where(x => !warehouseId.HasValue || x.WarehouseId == warehouseId.Value)
+            .Select(x => new { x.WarehouseId, x.ProductId, x.Quantity, Sku = x.Product!.Sku, ProductName = x.Product.Name })
+            .ToListAsync(cancellationToken);
+
+        return inventory
+            .Select(item => movementByItem.TryGetValue((item.WarehouseId, item.ProductId), out var change)
+                ? new ReportRow(item.Sku, item.ProductName, item.Quantity - change.Receipt + change.Issue - change.Adjustment, change.Receipt, change.Issue, change.Adjustment, item.Quantity)
+                : new ReportRow(item.Sku, item.ProductName, item.Quantity, 0, 0, 0, item.Quantity))
+            .OrderBy(x => x.Sku)
+            .ToList();
     }
 
     private async Task ApplyMovementAsync(int warehouseId, int productId, int change, MovementType type, string referenceType, int referenceId, int userId)
