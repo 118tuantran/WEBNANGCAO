@@ -66,7 +66,7 @@ public sealed class InventoryService(WarehouseDbContext db)
 
     public Task<List<InventoryView>> GetInventoryAsync(int? warehouseId, string? sku)
     {
-        var query = db.Inventories.AsNoTracking().AsQueryable();
+        var query = db.Inventories.AsNoTracking();
         if (warehouseId.HasValue) query = query.Where(x => x.WarehouseId == warehouseId.Value);
         if (!string.IsNullOrWhiteSpace(sku)) query = query.Where(x => x.Product!.Sku == sku);
         return query.OrderBy(x => x.Product!.Sku).Select(x => new InventoryView(x.WarehouseId, x.Product!.Sku, x.Product.Name, x.Quantity, x.MinStock, x.Quantity <= x.MinStock)).ToListAsync();
@@ -136,8 +136,11 @@ public sealed class InventoryService(WarehouseDbContext db)
         var query = db.StockTransactions.AsNoTracking().Where(x => x.CreatedAt < end && (!warehouseId.HasValue || x.WarehouseId == warehouseId.Value));
         var inPeriod = query.Where(x => !from.HasValue || x.CreatedAt >= from.Value.Date);
         var movements = await inPeriod.GroupBy(x => x.ProductId).Select(x => new { ProductId = x.Key, Receipt = x.Where(y => y.Type == MovementType.Receipt).Sum(y => y.ChangeQuantity), Issue = -x.Where(y => y.Type == MovementType.Issue).Sum(y => y.ChangeQuantity), Adjustment = x.Where(y => y.Type == MovementType.Adjustment).Sum(y => y.ChangeQuantity) }).ToListAsync();
-        var inventory = await db.Inventories.AsNoTracking().Include(x => x.Product).Where(x => !warehouseId.HasValue || x.WarehouseId == warehouseId.Value).ToListAsync();
-        return inventory.GroupJoin(movements, x => x.ProductId, x => x.ProductId, (item, changes) => { var c = changes.SingleOrDefault(); var receipt = c?.Receipt ?? 0; var issue = c?.Issue ?? 0; var adjustment = c?.Adjustment ?? 0; return new ReportRow(item.Product!.Sku, item.Product.Name, item.Quantity - receipt + issue - adjustment, receipt, issue, adjustment, item.Quantity); }).OrderBy(x => x.Sku).ToList();
+        var inventory = await db.Inventories.AsNoTracking()
+            .Where(x => !warehouseId.HasValue || x.WarehouseId == warehouseId.Value)
+            .Select(x => new { x.ProductId, x.Quantity, Sku = x.Product!.Sku, ProductName = x.Product.Name })
+            .ToListAsync();
+        return inventory.GroupJoin(movements, x => x.ProductId, x => x.ProductId, (item, changes) => { var c = changes.SingleOrDefault(); var receipt = c?.Receipt ?? 0; var issue = c?.Issue ?? 0; var adjustment = c?.Adjustment ?? 0; return new ReportRow(item.Sku, item.ProductName, item.Quantity - receipt + issue - adjustment, receipt, issue, adjustment, item.Quantity); }).OrderBy(x => x.Sku).ToList();
     }
 
     private async Task ApplyMovementAsync(int warehouseId, int productId, int change, MovementType type, string referenceType, int referenceId, int userId)
