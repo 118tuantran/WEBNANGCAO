@@ -228,12 +228,6 @@ Các phần còn lại chủ yếu là kiểm thử tải, integration/RBAC test
 - Smoke/RBAC/performance: `powershell -ExecutionPolicy Bypass -File .\Tests\api-smoke.ps1`
 - Docker: `docker compose up --build`
 
-### 8. Đánh giá cuối cùng
-
-- “Đã đáp ứng phần lớn yêu cầu trong file phân tích”: Đúng
-- “Đã hoàn thành toàn bộ nếu coi đây là hệ thống thực tế”: Chưa
-- “Đã đủ cho bài tập / demo / bảo vệ / môn học”: Đủ và tốt
-
 ## Reset dữ liệu demo
 
 Dừng server, backup database, xóa/tạo lại database `webnangcao` trong phpMyAdmin, rồi chạy `dotnet run`. Migration sẽ tạo lại schema và dữ liệu mẫu ban đầu.
