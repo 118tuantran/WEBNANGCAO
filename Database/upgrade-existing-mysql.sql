@@ -1,0 +1,16 @@
+CREATE TABLE IF NOT EXISTS `Roles` (`Id` int NOT NULL AUTO_INCREMENT, `Name` varchar(255) CHARACTER SET utf8mb4 NOT NULL, CONSTRAINT `PK_Roles` PRIMARY KEY (`Id`), UNIQUE KEY `IX_Roles_Name` (`Name`)) CHARACTER SET=utf8mb4;
+INSERT IGNORE INTO `Roles` (`Id`,`Name`) VALUES (1,'Admin'),(2,'WarehouseManager'),(3,'WarehouseStaff');
+ALTER TABLE `Users` ADD COLUMN IF NOT EXISTS `RoleId` int NULL;
+UPDATE `Users` SET `RoleId` = `Role` + 1 WHERE `RoleId` IS NULL;
+ALTER TABLE `Users` MODIFY COLUMN `RoleId` int NOT NULL;
+SET @fk_users = (SELECT COUNT(*) FROM information_schema.REFERENTIAL_CONSTRAINTS WHERE CONSTRAINT_SCHEMA=DATABASE() AND CONSTRAINT_NAME='FK_Users_Roles_RoleId');
+SET @sql_users = IF(@fk_users=0, 'ALTER TABLE `Users` ADD CONSTRAINT `FK_Users_Roles_RoleId` FOREIGN KEY (`RoleId`) REFERENCES `Roles` (`Id`) ON DELETE RESTRICT', 'SELECT 1');
+PREPARE stmt_users FROM @sql_users; EXECUTE stmt_users; DEALLOCATE PREPARE stmt_users;
+CREATE TABLE IF NOT EXISTS `Suppliers` (`Id` int NOT NULL AUTO_INCREMENT, `Code` varchar(255) CHARACTER SET utf8mb4 NOT NULL, `Name` longtext CHARACTER SET utf8mb4 NOT NULL, `Phone` longtext CHARACTER SET utf8mb4 NULL, `IsActive` tinyint(1) NOT NULL, CONSTRAINT `PK_Suppliers` PRIMARY KEY (`Id`), UNIQUE KEY `IX_Suppliers_Code` (`Code`)) CHARACTER SET=utf8mb4;
+ALTER TABLE `Receipts` ADD COLUMN IF NOT EXISTS `SupplierId` int NULL;
+SET @fk_receipts = (SELECT COUNT(*) FROM information_schema.REFERENTIAL_CONSTRAINTS WHERE CONSTRAINT_SCHEMA=DATABASE() AND CONSTRAINT_NAME='FK_Receipts_Suppliers_SupplierId');
+SET @sql_receipts = IF(@fk_receipts=0, 'ALTER TABLE `Receipts` ADD CONSTRAINT `FK_Receipts_Suppliers_SupplierId` FOREIGN KEY (`SupplierId`) REFERENCES `Suppliers` (`Id`) ON DELETE RESTRICT', 'SELECT 1');
+PREPARE stmt_receipts FROM @sql_receipts; EXECUTE stmt_receipts; DEALLOCATE PREPARE stmt_receipts;
+ALTER TABLE `ReceiptLines` ADD COLUMN IF NOT EXISTS `UnitCost` decimal(65,30) NOT NULL DEFAULT 0;
+CREATE TABLE IF NOT EXISTS `__EFMigrationsHistory` (`MigrationId` varchar(150) CHARACTER SET utf8mb4 NOT NULL, `ProductVersion` varchar(32) CHARACTER SET utf8mb4 NOT NULL, CONSTRAINT `PK___EFMigrationsHistory` PRIMARY KEY (`MigrationId`)) CHARACTER SET=utf8mb4;
+INSERT IGNORE INTO `__EFMigrationsHistory` (`MigrationId`,`ProductVersion`) VALUES ('20260918123224_InitialMySqlSchema','9.0.0');

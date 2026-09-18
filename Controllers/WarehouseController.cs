@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.ComponentModel.DataAnnotations;
 using WarehouseManagement.Domain;
 using WarehouseManagement.Services;
 
@@ -47,7 +48,7 @@ public sealed class WarehouseController(InventoryService service) : ControllerBa
     [Authorize(Roles = "WarehouseManager,WarehouseStaff")]
     public async Task<IActionResult> CreateReceipt(MovementRequest request)
     {
-        try { return Ok(await service.CreateReceiptAsync(request.WarehouseId, CurrentUserId, request.Lines)); }
+        try { return Ok(await service.CreateReceiptAsync(request.WarehouseId, CurrentUserId, request.Lines, request.SupplierId)); }
         catch (InvalidOperationException exception) { return BadRequest(new { message = exception.Message }); }
     }
 
@@ -94,6 +95,6 @@ public sealed class WarehouseController(InventoryService service) : ControllerBa
     private int CurrentUserId => int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 }
 
-public sealed record MovementRequest(int WarehouseId, IReadOnlyCollection<MovementLine> Lines);
-public sealed record DecisionRequest(string Reason);
-public sealed record MinStockRequest(int WarehouseId, int ProductId, int MinStock);
+public sealed record MovementRequest([Range(1, int.MaxValue)] int WarehouseId, [Required, MinLength(1)] IReadOnlyCollection<MovementLine> Lines, int? SupplierId = null);
+public sealed record DecisionRequest([Required] string Reason);
+public sealed record MinStockRequest([Range(1, int.MaxValue)] int WarehouseId, [Range(1, int.MaxValue)] int ProductId, [Range(0, int.MaxValue)] int MinStock);

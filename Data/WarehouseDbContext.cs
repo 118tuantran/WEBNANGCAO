@@ -8,6 +8,8 @@ namespace WarehouseManagement.Data;
 public sealed class WarehouseDbContext(DbContextOptions<WarehouseDbContext> options) : DbContext(options)
 {
     public DbSet<User> Users => Set<User>();
+    public DbSet<Role> Roles => Set<Role>();
+    public DbSet<Supplier> Suppliers => Set<Supplier>();
     public DbSet<Product> Products => Set<Product>();
     public DbSet<Category> Categories => Set<Category>();
     public DbSet<Warehouse> Warehouses => Set<Warehouse>();
@@ -24,6 +26,10 @@ public sealed class WarehouseDbContext(DbContextOptions<WarehouseDbContext> opti
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<Product>().HasIndex(x => x.Sku).IsUnique();
+        modelBuilder.Entity<Role>().HasIndex(x => x.Name).IsUnique();
+        modelBuilder.Entity<Supplier>().HasIndex(x => x.Code).IsUnique();
+        modelBuilder.Entity<User>().HasOne(x => x.RoleDefinition).WithMany().HasForeignKey(x => x.RoleId).OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<Receipt>().HasOne(x => x.Supplier).WithMany().HasForeignKey(x => x.SupplierId).OnDelete(DeleteBehavior.Restrict);
         modelBuilder.Entity<Category>().HasIndex(x => x.Name).IsUnique();
         modelBuilder.Entity<Warehouse>().HasIndex(x => x.Code).IsUnique();
         modelBuilder.Entity<Inventory>().HasIndex(x => new { x.WarehouseId, x.ProductId }).IsUnique();
@@ -35,10 +41,14 @@ public sealed class WarehouseDbContext(DbContextOptions<WarehouseDbContext> opti
         modelBuilder.Entity<Stocktake>().HasMany(x => x.Details).WithOne(x => x.Stocktake).HasForeignKey(x => x.StocktakeId).OnDelete(DeleteBehavior.Cascade);
         modelBuilder.Entity<Product>().HasOne(x => x.Category).WithMany().HasForeignKey(x => x.CategoryId).OnDelete(DeleteBehavior.Restrict);
 
+        modelBuilder.Entity<Role>().HasData(
+            new Role { Id = 1, Name = nameof(UserRole.Admin) },
+            new Role { Id = 2, Name = nameof(UserRole.WarehouseManager) },
+            new Role { Id = 3, Name = nameof(UserRole.WarehouseStaff) });
         modelBuilder.Entity<User>().HasData(
-            new User { Id = 1, Username = "admin", PasswordHash = Hash("Admin@123"), Role = UserRole.Admin },
-            new User { Id = 2, Username = "manager", PasswordHash = Hash("Manager@123"), Role = UserRole.WarehouseManager },
-            new User { Id = 3, Username = "staff", PasswordHash = Hash("Staff@123"), Role = UserRole.WarehouseStaff });
+            new User { Id = 1, Username = "admin", PasswordHash = Hash("Admin@123"), Role = UserRole.Admin, RoleId = 1 },
+            new User { Id = 2, Username = "manager", PasswordHash = Hash("Manager@123"), Role = UserRole.WarehouseManager, RoleId = 2 },
+            new User { Id = 3, Username = "staff", PasswordHash = Hash("Staff@123"), Role = UserRole.WarehouseStaff, RoleId = 3 });
         modelBuilder.Entity<Warehouse>().HasData(new Warehouse { Id = 1, Code = "WH-MAIN", Name = "Kho chính" });
         modelBuilder.Entity<Product>().HasData(
             new Product { Id = 1, Sku = "SKU-001", Name = "Bàn phím cơ", Unit = "cái", CategoryId = 1 },

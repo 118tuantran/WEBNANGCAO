@@ -6,10 +6,10 @@
 git clone <URL_REPOSITORY>
 cd BTLWEB
 dotnet restore
-dotnet run --urls http://localhost:5077
+dotnet run --urls http://localhost:5165
 ```
 
-Mở `http://localhost:5077`. Database SQLite `warehouse.db` được tạo tự động và không commit lên GitHub.
+Mở `http://localhost:5165`. Bật MySQL trong XAMPP trước khi chạy; database `webnangcao` được cập nhật bằng EF Core migrations.
 
 ## Quy ước branch
 
@@ -46,4 +46,4 @@ dotnet restore
 dotnet build
 ```
 
-Nếu muốn reset dữ liệu local, dừng server rồi xóa `warehouse.db`, sau đó chạy lại project.
+Nếu muốn reset dữ liệu local, hãy backup trước rồi xóa/tạo lại database `webnangcao` trong phpMyAdmin và chạy lại project.

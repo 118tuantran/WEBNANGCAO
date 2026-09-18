@@ -479,3 +479,23 @@ Hệ thống Quản lý Kho Hàng được giới hạn còn 3 role và 4 nhóm 
 Workflow kiểm kê cũng được tách rõ: mở đợt → nhập số thực tế → tính chênh lệch → nhập lý do → duyệt điều chỉnh → cập nhật tồn → đóng đợt.
 Mô hình 3 role đủ để đi sâu vào RBAC, Least Privilege, Segregation of Duties, quyền theo trạng thái chứng từ và Audit Log mà không phải mở rộng sang mua hàng, bán hàng, vận chuyển hoặc kế toán.
 Cấu trúc tài liệu bám theo mẫu BTL được cung cấp: Bối cảnh/Mục tiêu/Phạm vi → Actor → Use Case → User Story → Acceptance Criteria → FR/NFR → Business Rules → Domain Data → System Design → Traceability → Test.
+
+9. Kết quả đối chiếu implementation (18/09/2026)
+
+ĐÃ ĐẠT:
+- UC-01..UC-15 và US-001..US-016: nghiệp vụ lõi, RBAC, tồn kho, nhập/xuất, kiểm kê, báo cáo và audit đã có API/UI.
+- FR-001..FR-019: đã có implementation; Supplier, Role và UnitCost đã được bổ sung theo domain data.
+- NFR-02..NFR-04: transaction, kiểm tra quyền và truy vết đã được triển khai.
+- NFR-01: API smoke test 20 lần, truy vấn sản phẩm trung bình 18.52 ms trên máy phát triển.
+- NFR-03: smoke test API xác nhận Manager 200, Admin/Staff truy cập trái quyền 403.
+- NFR-07: Playwright kiểm tra desktop 1440px, tablet 900px và mobile 390px; không tràn ngang.
+- Migration, Swagger (/swagger), health check (/health), validation DTO, global exception handler, backup/restore, CI và Dockerfile/docker-compose đã được bổ sung.
+- Kiểm thử: 20/20 unit test đạt; API smoke test đạt; MySQL schema hoạt động.
+
+CÒN GIỚI HẠN:
+- Docker Compose chưa chạy thực tế vì máy kiểm thử không có Docker daemon; cấu hình đã sẵn sàng.
+- NFR-01 mới là smoke latency test, chưa phải load test dữ liệu lớn/concurrency.
+- NFR-06 backup đã có script và test tạo backup, nhưng chưa diễn tập restore trên môi trường production.
+- UI đã kiểm tra responsive tự động cơ bản, vẫn cần UAT nghiệp vụ trên thiết bị thật.
+
+Kết luận: project đã đáp ứng đầy đủ phạm vi bài tập/demo trong file phân tích; các giới hạn còn lại thuộc kiểm thử tải, môi trường Docker/production và UAT thực tế, không phải thiếu workflow nghiệp vụ cốt lõi.

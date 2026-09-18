@@ -7,12 +7,20 @@ public enum MovementType { Receipt, Issue, Adjustment }
 public enum UserRole { Admin, WarehouseManager, WarehouseStaff }
 public enum StocktakeStatus { Open, Review, Closed }
 
+public sealed class Role
+{
+    public int Id { get; set; }
+    public string Name { get; set; } = "";
+}
+
 public sealed class User
 {
     public int Id { get; set; }
     public string Username { get; set; } = "";
     public string PasswordHash { get; set; } = "";
     public UserRole Role { get; set; }
+    public int RoleId { get; set; }
+    public Role? RoleDefinition { get; set; }
     public bool IsActive { get; set; } = true;
 }
 
@@ -58,6 +66,8 @@ public sealed class Receipt
     public int Id { get; set; }
     public string Number { get; set; } = "";
     public int WarehouseId { get; set; }
+    public int? SupplierId { get; set; }
+    public Supplier? Supplier { get; set; }
     public DocumentStatus Status { get; set; } = DocumentStatus.Pending;
     public int CreatedBy { get; set; }
     public int? ApprovedBy { get; set; }
@@ -73,6 +83,16 @@ public sealed class ReceiptLine
     public int ReceiptId { get; set; }
     public int ProductId { get; set; }
     public int Quantity { get; set; }
+    public decimal UnitCost { get; set; }
+}
+
+public sealed class Supplier
+{
+    public int Id { get; set; }
+    public string Code { get; set; } = "";
+    public string Name { get; set; } = "";
+    public string? Phone { get; set; }
+    public bool IsActive { get; set; } = true;
 }
 
 public sealed class Issue

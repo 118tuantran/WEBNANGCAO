@@ -4,12 +4,16 @@ using QuestPDF.Infrastructure;
 using System.Security.Claims;
 using WarehouseManagement.Data;
 using WarehouseManagement.Domain;
+using Microsoft.AspNetCore.Diagnostics;
 
 var builder = WebApplication.CreateBuilder(args);
 QuestPDF.Settings.License = LicenseType.Community;
 
+var connectionString = builder.Configuration.GetConnectionString("Warehouse")
+	?? Environment.GetEnvironmentVariable("WAREHOUSE_DB_CONNECTION")
+	?? "Server=127.0.0.1;Port=3306;Database=webnangcao;User=root;Password=;";
 builder.Services.AddDbContext<WarehouseManagement.Data.WarehouseDbContext>(options =>
-	options.UseSqlite(builder.Configuration.GetConnectionString("Warehouse") ?? "Data Source=warehouse.db"));
+	options.UseMySql(connectionString, ServerVersion.AutoDetect(connectionString)));
 builder.Services.AddAuthentication("WarehouseCookie")
 	.AddCookie("WarehouseCookie", options =>
 	{
@@ -37,6 +41,9 @@ builder.Services.AddAuthentication("WarehouseCookie")
 	});
 builder.Services.AddAuthorization();
 builder.Services.AddScoped<WarehouseManagement.Services.InventoryService>();
+builder.Services.AddHealthChecks().AddDbContextCheck<WarehouseDbContext>();
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen();
 
 builder.Services.AddControllers().AddJsonOptions(options =>
 	options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
@@ -45,8 +52,19 @@ var app = builder.Build();
 
 using (var scope = app.Services.CreateScope())
 {
-	await scope.ServiceProvider.GetRequiredService<WarehouseManagement.Data.WarehouseDbContext>().Database.EnsureCreatedAsync();
+	await scope.ServiceProvider.GetRequiredService<WarehouseDbContext>().Database.MigrateAsync();
 }
+
+app.UseExceptionHandler(errorApp => errorApp.Run(async context =>
+{
+	var exception = context.Features.Get<IExceptionHandlerFeature>()?.Error;
+	context.Response.StatusCode = exception is InvalidOperationException ? StatusCodes.Status400BadRequest : StatusCodes.Status500InternalServerError;
+	context.Response.ContentType = "application/json";
+	await context.Response.WriteAsJsonAsync(new { message = exception is InvalidOperationException ? exception.Message : "Đã xảy ra lỗi máy chủ." });
+}));
+app.UseSwagger();
+app.UseSwaggerUI();
+app.MapHealthChecks("/health");
 
 // Configure the HTTP request pipeline.
 

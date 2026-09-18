@@ -31,7 +31,7 @@ BTLWEB/
 
 ## Luồng xử lý chính
 
-`Controller -> InventoryService -> WarehouseDbContext -> SQLite`
+`Controller -> InventoryService -> WarehouseDbContext -> MySQL`
 
 - Controller nhận request, kiểm tra role và trả HTTP status.
 - Service kiểm tra business rule, mở DB transaction và cập nhật tồn.
@@ -46,4 +46,4 @@ BTLWEB/
 - Người tạo không được tự duyệt.
 - Không cho tồn âm.
 - Cập nhật `Inventory`, `StockTransaction` và trạng thái chứng từ trong cùng transaction.
-- Không commit `warehouse.db`, `bin/` hoặc `obj/`.
+- Không commit thư mục backup database, `bin/` hoặc `obj/`.

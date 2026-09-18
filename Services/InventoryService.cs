@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using System.ComponentModel.DataAnnotations;
 using WarehouseManagement.Data;
 using WarehouseManagement.Domain;
 
@@ -6,13 +7,14 @@ namespace WarehouseManagement.Services;
 
 public sealed class InventoryService(WarehouseDbContext db)
 {
-    public async Task<Receipt> CreateReceiptAsync(int warehouseId, int userId, IReadOnlyCollection<MovementLine> lines)
+    public async Task<Receipt> CreateReceiptAsync(int warehouseId, int userId, IReadOnlyCollection<MovementLine> lines, int? supplierId = null)
     {
         ValidateLines(lines);
         await EnsureActiveWarehouseAsync(warehouseId);
         await EnsureProductsAsync(lines);
-        var receipt = new Receipt { Number = $"GR-{DateTime.UtcNow:yyyyMMddHHmmssfff}", WarehouseId = warehouseId, CreatedBy = userId };
-        receipt.Lines = lines.Select(x => new ReceiptLine { ProductId = x.ProductId, Quantity = x.Quantity }).ToList();
+        if (supplierId.HasValue && !await db.Suppliers.AnyAsync(x => x.Id == supplierId.Value && x.IsActive)) throw new InvalidOperationException("Nhà cung cấp không tồn tại hoặc đã bị khóa.");
+        var receipt = new Receipt { Number = $"GR-{DateTime.UtcNow:yyyyMMddHHmmssfff}", WarehouseId = warehouseId, CreatedBy = userId, SupplierId = supplierId };
+        receipt.Lines = lines.Select(x => new ReceiptLine { ProductId = x.ProductId, Quantity = x.Quantity, UnitCost = x.UnitCost }).ToList();
         db.Receipts.Add(receipt);
         await db.SaveChangesAsync();
         return receipt;
@@ -78,6 +80,7 @@ public sealed class InventoryService(WarehouseDbContext db)
     public Task<List<Product>> GetProductsAsync() => db.Products.AsNoTracking().Where(x => x.IsActive).OrderBy(x => x.Sku).ToListAsync();
     public Task<List<Category>> GetCategoriesAsync() => db.Categories.AsNoTracking().Where(x => x.IsActive).OrderBy(x => x.Name).ToListAsync();
     public Task<List<Warehouse>> GetWarehousesAsync() => db.Warehouses.AsNoTracking().Where(x => x.IsActive).OrderBy(x => x.Code).ToListAsync();
+    public Task<List<Supplier>> GetSuppliersAsync() => db.Suppliers.AsNoTracking().Where(x => x.IsActive).OrderBy(x => x.Code).ToListAsync();
     public Task<List<Receipt>> GetPendingReceiptsAsync() => db.Receipts.AsNoTracking().Include(x => x.Lines).Where(x => x.Status == DocumentStatus.Pending).OrderByDescending(x => x.CreatedAt).ToListAsync();
     public Task<List<Issue>> GetPendingIssuesAsync() => db.Issues.AsNoTracking().Include(x => x.Lines).Where(x => x.Status == DocumentStatus.Pending).OrderByDescending(x => x.CreatedAt).ToListAsync();
 
@@ -97,7 +100,7 @@ public sealed class InventoryService(WarehouseDbContext db)
         if (string.IsNullOrWhiteSpace(username)) throw new InvalidOperationException("Username không được để trống.");
         var user = id.HasValue ? await db.Users.FindAsync(id.Value) ?? throw new InvalidOperationException("Không tìm thấy User.") : new User();
         if (!id.HasValue) db.Users.Add(user);
-        user.Username = username.Trim(); user.Role = role; user.IsActive = active;
+        user.Username = username.Trim(); user.Role = role; user.RoleId = (int)role + 1; user.IsActive = active;
         if (!string.IsNullOrWhiteSpace(password)) user.PasswordHash = WarehouseDbContext.Hash(password);
         await db.SaveChangesAsync(); return user;
     }
@@ -141,6 +144,17 @@ public sealed class InventoryService(WarehouseDbContext db)
             await db.SaveChangesAsync();
         }
         return warehouse;
+    }
+
+    public async Task<Supplier> SaveSupplierAsync(int? id, string code, string name, string? phone, bool active)
+    {
+        if (string.IsNullOrWhiteSpace(code) || string.IsNullOrWhiteSpace(name)) throw new InvalidOperationException("Mã và tên nhà cung cấp không được để trống.");
+        if (await db.Suppliers.AnyAsync(x => x.Code == code.Trim() && x.Id != id)) throw new InvalidOperationException("Mã nhà cung cấp đã tồn tại.");
+        var supplier = id.HasValue ? await db.Suppliers.FindAsync(id.Value) ?? throw new InvalidOperationException("Không tìm thấy nhà cung cấp.") : new Supplier();
+        if (!id.HasValue) db.Suppliers.Add(supplier);
+        supplier.Code = code.Trim(); supplier.Name = name.Trim(); supplier.Phone = phone?.Trim(); supplier.IsActive = active;
+        await db.SaveChangesAsync();
+        return supplier;
     }
 
     public async Task<Stocktake> CreateStocktakeAsync(int warehouseId, int userId, IReadOnlyCollection<int>? productIds)
@@ -217,7 +231,8 @@ public sealed class InventoryService(WarehouseDbContext db)
     private async Task EnsureProductsAsync(IEnumerable<MovementLine> lines)
     {
         var ids = lines.Select(x => x.ProductId).ToArray();
-        if (await db.Products.CountAsync(x => ids.Contains(x.Id) && x.IsActive) != ids.Length) throw new InvalidOperationException("SKU không tồn tại hoặc đã bị khóa.");
+        var activeIds = await db.Products.Where(x => x.IsActive).Select(x => x.Id).ToListAsync();
+        if (ids.Any(id => !activeIds.Contains(id))) throw new InvalidOperationException("SKU không tồn tại hoặc đã bị khóa.");
     }
     private async Task EnsureActiveWarehouseAsync(int id) { if (!await db.Warehouses.AnyAsync(x => x.Id == id && x.IsActive)) throw new InvalidOperationException("Kho không tồn tại hoặc đã bị khóa."); }
     private static void ValidateLines(IEnumerable<MovementLine> lines) { if (!lines.Any() || lines.Any(x => x.Quantity <= 0)) throw new InvalidOperationException("Danh sách SKU không được rỗng và số lượng phải lớn hơn 0."); }
@@ -234,6 +249,6 @@ public sealed class InventoryService(WarehouseDbContext db)
     }
 }
 
-public record MovementLine(int ProductId, int Quantity);
+public record MovementLine(int ProductId, [param: Range(1, int.MaxValue)] int Quantity, [param: Range(0, double.MaxValue)] decimal UnitCost = 0);
 public record InventoryView(int WarehouseId, int ProductId, string Sku, string ProductName, int Quantity, int MinStock, bool LowStock);
 public record ReportRow(string Sku, string ProductName, int OpeningQuantity, int ReceiptQuantity, int IssueQuantity, int AdjustmentQuantity, int ClosingQuantity);

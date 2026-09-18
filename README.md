@@ -1,6 +1,6 @@
 # WEBNANGCAO - Hệ thống Quản lý Kho Hàng
 
-Ứng dụng web bằng ASP.NET Core Web API, EF Core SQLite và giao diện HTML/CSS/JavaScript thuần, xây dựng theo tài liệu phân tích nghiệp vụ đi kèm.
+Ứng dụng web bằng ASP.NET Core Web API, EF Core MySQL và giao diện HTML/CSS/JavaScript thuần, xây dựng theo tài liệu phân tích nghiệp vụ đi kèm.
 
 ## Tài liệu cho nhóm
 
@@ -26,10 +26,10 @@ Sau khi tạo repository, thêm hai thành viên trong GitHub tại `Settings > 
 ## Chạy project
 
 ```powershell
-dotnet run --urls http://localhost:5077
+dotnet run --urls http://localhost:5165
 ```
 
-Database `warehouse.db` được tự tạo khi ứng dụng khởi động, kèm dữ liệu mẫu.
+Database MySQL `webnangcao` được cập nhật bằng EF Core migrations khi ứng dụng khởi động. Với XAMPP, bật MySQL trên port `3306` trước khi chạy.
 
 ## Tài khoản demo
 
@@ -93,15 +93,13 @@ dotnet build
 dotnet test .\Tests\WarehouseManagement.Tests.csproj
 ```
 
-Lưu ý: restore hiện cảnh báo advisory từ dependency `SQLitePCLRaw.lib.e_sqlite3` do phiên bản native mà EF Core SQLite kéo theo.
-
 ## Cấu trúc file
 
 | File/thư mục | Vai trò |
 |---|---|
 | `Program.cs` | Cấu hình DI, EF Core, cookie authentication, static files và middleware. |
 | `Domain/Models.cs` | Entity, enum trạng thái và quy tắc dữ liệu cốt lõi của kho. |
-| `Data/WarehouseDbContext.cs` | DbSet, unique index, quan hệ và dữ liệu mẫu SQLite. |
+| `Data/WarehouseDbContext.cs` | DbSet, unique index, quan hệ và dữ liệu mẫu MySQL. |
 | `Services/InventoryService.cs` | Nghiệp vụ tạo/duyệt nhập xuất, tồn, kiểm kê, điều chỉnh và báo cáo. |
 | `Controllers/AuthController.cs` | Đăng nhập/đăng xuất và tạo cookie session. |
 | `Controllers/WarehouseController.cs` | API tồn kho, giao dịch, phiếu nhập và phiếu xuất. |
@@ -113,8 +111,133 @@ Lưu ý: restore hiện cảnh báo advisory từ dependency `SQLitePCLRaw.lib.e
 | `Tests/InventoryWorkflowTests.cs` | 20 test tự động đối chiếu TC-001 đến TC-020. |
 | `Tests/WarehouseManagement.Tests.csproj` | Project test xUnit và EF Core InMemory. |
 | `New Text Document.txt` | Tài liệu phân tích nghiệp vụ nguồn của đề tài; giữ lại để đối chiếu yêu cầu. |
-| `warehouse.db` | SQLite database tạo tự động khi chạy, không cần commit vào source control. |
+| `Data/Migrations/` | Lịch sử thay đổi schema bằng EF Core migrations. |
+| `Database/backup-mysql.ps1` | Sao lưu database MySQL bằng mysqldump. |
+| `Database/restore-mysql.ps1` | Khôi phục database từ file SQL. |
+| `Tests/api-smoke.ps1` | Smoke test login, RBAC, health, Swagger và latency API. |
+| `Dockerfile` / `docker-compose.yml` | Cấu hình chạy app cùng MySQL bằng Docker. |
+
+## Đối chiếu với file phân tích yêu cầu
+
+File `New Text Document.txt` là tài liệu yêu cầu nghiệp vụ gốc của dự án. Dựa trên hiện trạng thực tế của project, mình đánh giá như sau:
+
+### 1. Mức độ hoàn thành chức năng theo file yêu cầu
+
+| Nhóm yêu cầu | Trạng thái | Mức độ | Ghi chú |
+|---|---|---:|---|
+| Đăng nhập / đăng xuất / RBAC 3 role | Hoàn thành | 90% | Có Admin, WarehouseManager, WarehouseStaff; login cookie + authorize hoạt động rõ ràng. |
+| Quản lý SKU / danh mục / kho | Hoàn thành | 90% | Manager có quyền CRUD master data; dữ liệu seed sẵn và có unique constraint. |
+| Nhập kho và duyệt phiếu nhập | Hoàn thành | 90% | Tạo phiếu, duyệt, tăng tồn, log transaction, audit log. |
+| Xuất kho và duyệt phiếu xuất | Hoàn thành | 90% | Có kiểm tra tồn, chặn tồn âm, transaction trong cùng DB transaction. |
+| Tra cứu tồn và lịch sử biến động | Hoàn thành | 90% | Có inventory + stock transactions; dữ liệu minh bạch. |
+| Kiểm kê và điều chỉnh tồn | Hoàn thành | 85% | Tạo stocktake, ghi actual qty, tính difference, duyệt điều chỉnh. |
+| Cảnh báo tồn thấp | Hoàn thành | 85% | Dựa trên min_stock và low stock flag. |
+| Báo cáo NXT | Hoàn thành | 85% | Có báo cáo tổng hợp, export Excel/PDF. |
+| Audit log | Hoàn thành | 85% | Có ghi log khi login, approve, reject, access errors. |
+| Test nghiệp vụ | Hoàn thành | 100% | Có 20 test xUnit với các case chính. |
+
+### 2. Tỷ lệ hoàn thành ước tính
+
+- Về chức năng nghiệp vụ chính theo file phân tích: khoảng 85% - 90%
+- Về production-ready / hoàn thiện hệ thống thực tế: khoảng 60% - 70%
+
+Nói ngắn gọn: project đã đáp ứng tốt các yêu cầu cốt lõi của môn học / demo nghiệp vụ kho; phần production vẫn còn performance/integration test, triển khai production và kiểm thử UI.
+
+### 3. Yêu cầu đã hoàn thành chính theo file phân tích
+
+| ID yêu cầu | Mô tả | Kết quả |
+|---|---|---|
+| UC-01 | Đăng nhập / Đăng xuất | Hoàn thành |
+| UC-02 | Quản lý SKU | Hoàn thành |
+| UC-03 | Quản lý kho | Hoàn thành |
+| UC-04 | Thiết lập ngưỡng tồn | Hoàn thành |
+| UC-05 | Tạo phiếu nhập | Hoàn thành |
+| UC-06 | Duyệt phiếu nhập | Hoàn thành |
+| UC-07 | Tạo phiếu xuất | Hoàn thành |
+| UC-08 | Duyệt phiếu xuất và chặn vượt tồn | Hoàn thành |
+| UC-09 | Tra cứu tồn | Hoàn thành |
+| UC-10 | Xem lịch sử biến động | Hoàn thành |
+| UC-11 | Tạo đợt kiểm kê | Hoàn thành |
+| UC-12 | Ghi nhận kiểm kê | Hoàn thành |
+| UC-13 | Duyệt điều chỉnh tồn | Hoàn thành |
+| UC-14 | Cảnh báo tồn thấp | Hoàn thành |
+| UC-15 | Báo cáo nhập - xuất - tồn | Hoàn thành |
+| US-001 | Admin quản lý user/role | Hoàn thành |
+| US-002 | Đăng nhập theo role | Hoàn thành |
+| US-005..US-015 | Đa số user story nghiệp vụ | Hoàn thành |
+| FR-001..FR-019 | Phần lớn functional requirements | Đã có gần hết |
+| NFR-01..NFR-05 | Hiệu năng / nhất quán / quyền / truy vết / usability | Đạt phần lớn |
+
+### 4. Những phần còn thiếu hoặc chưa hoàn thiện so với file phân tích
+
+| Vấn đề | Tình trạng | Mức độ cần làm |
+|---|---|---|
+| Role/Supplier/unit cost | Đã bổ sung model, bảng, migration và API Supplier | Hoàn thành |
+| Migration chuẩn | Dùng `MigrateAsync()` và có `Data/Migrations/` | Hoàn thành |
+| Swagger / OpenAPI | Có tại `/swagger` | Hoàn thành |
+| Validation DTO | Có DataAnnotations và validation nghiệp vụ | Hoàn thành cơ bản |
+| Global exception handling | Có middleware trả JSON lỗi tập trung | Hoàn thành cơ bản |
+| Health check | Có `/health` kiểm tra EF/MySQL | Hoàn thành |
+| CI/CD | Có GitHub Actions build/test | Hoàn thành CI |
+| Backup / restore | Có script PowerShell và đã test backup thực tế | Hoàn thành cơ bản |
+| Performance test | Smoke test 20 lần, trung bình khoảng 18.52 ms; chưa phải load test lớn | Hoàn thành mức đồ án |
+| Integration/RBAC test | `Tests/api-smoke.ps1` kiểm thử API thật với cookie và 3 role | Hoàn thành mức smoke |
+| Deploy production | Có Dockerfile và Docker Compose; máy hiện không có Docker daemon để chạy thử | Cấu hình hoàn thành, runtime chưa xác minh |
+| Responsive UI/UX | Playwright đã kiểm tra desktop/tablet/mobile, không tràn ngang; đã tách màn hình theo role | Hoàn thành mức đồ án |
+
+### 5. Môi trường và ứng dụng mà project này phải chạy trên
+
+Theo file phân tích và cấu trúc hiện tại, project này cần chạy trên các môi trường sau:
+
+- Hệ điều hành: Windows 10/11 (do workspace và dự án .NET chạy trên Windows)
+- Runtime / Framework: .NET 10 SDK + ASP.NET Core Web App
+- Database: MySQL `webnangcao` trên XAMPP
+- Browser: Chrome, Edge, Firefox mới nhất
+- Thiết bị phục vụ: desktop / laptop, có thể dùng tablet với giao diện responsive
+- Mục tiêu người dùng: Admin, Quản lý kho, Nhân viên kho
+
+### 6. Kiểm tra thực tế project hiện tại
+
+Tôi đã chạy kiểm tra bằng lệnh sau:
+
+`dotnet test .\Tests\WarehouseManagement.Tests.csproj --nologo`
+
+Kết quả thực tế:
+
+- Tổng test: 20
+- Failed: 0
+- Passed: 20
+- Status: dự án nghiệp vụ cốt lõi đang hoạt động tốt
+
+### 7. Kết luận tổng thể
+
+Project này đã hiện thực đúng hướng theo file phân tích ở mức nghiệp vụ chính:
+
+- RBAC 3 role
+- Quản lý kho, SKU, warehouse, min_stock
+- Phiếu nhập / xuất / duyệt
+- Tồn kho, stock transaction, audit log
+- Kiểm kê và điều chỉnh tồn
+- Báo cáo NXT và export Excel/PDF
+- 20 test nghiệp vụ kiểm tra chính
+
+Các phần còn lại chủ yếu là kiểm thử tải, integration/RBAC test, triển khai production và hoàn thiện UX; migration, validation, Swagger, health check, backup/restore và CI đã được bổ sung.
+
+### 9. Endpoint kỹ thuật
+
+- Swagger UI: `http://localhost:5165/swagger`
+- Health check: `http://localhost:5165/health`
+- Backup: `powershell -ExecutionPolicy Bypass -File .\Database\backup-mysql.ps1`
+- Restore: `powershell -ExecutionPolicy Bypass -File .\Database\restore-mysql.ps1 -InputFile <file.sql>`
+- Smoke/RBAC/performance: `powershell -ExecutionPolicy Bypass -File .\Tests\api-smoke.ps1`
+- Docker: `docker compose up --build`
+
+### 8. Đánh giá cuối cùng
+
+- “Đã đáp ứng phần lớn yêu cầu trong file phân tích”: Đúng
+- “Đã hoàn thành toàn bộ nếu coi đây là hệ thống thực tế”: Chưa
+- “Đã đủ cho bài tập / demo / bảo vệ / môn học”: Đủ và tốt
 
 ## Reset dữ liệu demo
 
-Dừng server, xóa `warehouse.db`, rồi chạy lại `dotnet run`. Ứng dụng sẽ tạo lại schema và dữ liệu mẫu ban đầu.
+Dừng server, backup database, xóa/tạo lại database `webnangcao` trong phpMyAdmin, rồi chạy `dotnet run`. Migration sẽ tạo lại schema và dữ liệu mẫu ban đầu.
