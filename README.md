@@ -6,7 +6,7 @@
 
 - [CONTRIBUTING.md](CONTRIBUTING.md): quy ước branch, commit, Pull Request và phân công.
 - [PROJECT-STRUCTURE.md](PROJECT-STRUCTURE.md): vai trò từng thư mục/file và luồng xử lý.
-- `New Text Document.txt`: tài liệu phân tích, use case, requirements và thiết kế nguồn.
+- `file phân tích yêu cầu hệ thống.txt`: tài liệu phân tích, use case, requirements và thiết kế nguồn.
 
 ## Repository GitHub
 
@@ -111,7 +111,7 @@ dotnet test .\Tests\WarehouseManagement.Tests.csproj
 | `wwwroot/index.html` | Giao diện web responsive: đăng nhập, tồn kho, phê duyệt, kiểm kê, báo cáo, audit. |
 | `Tests/InventoryWorkflowTests.cs` | 20 test tự động đối chiếu TC-001 đến TC-020. |
 | `Tests/WarehouseManagement.Tests.csproj` | Project test xUnit và EF Core InMemory. |
-| `New Text Document.txt` | Tài liệu phân tích nghiệp vụ nguồn của đề tài; giữ lại để đối chiếu yêu cầu. |
+| `file phân tích yêu cầu hệ thống.txt` | Tài liệu phân tích nghiệp vụ nguồn của đề tài; giữ lại để đối chiếu yêu cầu. |
 | `Data/Migrations/` | Lịch sử thay đổi schema bằng EF Core migrations. |
 | `Database/backup-mysql.ps1` | Sao lưu database MySQL bằng mysqldump. |
 | `Database/restore-mysql.ps1` | Khôi phục database từ file SQL. |
@@ -120,7 +120,7 @@ dotnet test .\Tests\WarehouseManagement.Tests.csproj
 
 ## Đối chiếu với file phân tích yêu cầu
 
-File `New Text Document.txt` là tài liệu yêu cầu nghiệp vụ gốc của dự án. Dựa trên hiện trạng thực tế của project, mình đánh giá như sau:
+File `file phân tích yêu cầu hệ thống.txt` là tài liệu yêu cầu nghiệp vụ gốc của dự án. Dựa trên hiện trạng thực tế của project, mình đánh giá như sau:
 
 ### 1. Mức độ hoàn thành chức năng theo file yêu cầu
 
