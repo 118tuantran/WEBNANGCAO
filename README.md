@@ -8,20 +8,21 @@
 - [PROJECT-STRUCTURE.md](PROJECT-STRUCTURE.md): vai trò từng thư mục/file và luồng xử lý.
 - `New Text Document.txt`: tài liệu phân tích, use case, requirements và thiết kế nguồn.
 
-## Đưa lên GitHub lần đầu
+## Repository GitHub
 
-Chạy trong terminal có cài Git:
+Repository chính của project:
+
+https://github.com/118tuantran/WEBNANGCAO
+
+Các lệnh thường dùng:
 
 ```powershell
-git init
+git pull origin main
+git status
 git add .
-git commit -m "chore: khoi tao he thong quan ly kho"
-git branch -M main
-git remote add origin <URL_REPOSITORY>
-git push -u origin main
+git commit -m "mo ta thay doi"
+git push origin main
 ```
-
-Sau khi tạo repository, thêm hai thành viên trong GitHub tại `Settings > Collaborators`.
 
 ## Chạy project
 
