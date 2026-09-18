@@ -122,25 +122,20 @@ dotnet test .\Tests\WarehouseManagement.Tests.csproj
 
 File `file phân tích yêu cầu hệ thống.txt` là tài liệu yêu cầu nghiệp vụ gốc của dự án. Dựa trên hiện trạng thực tế của project, mình đánh giá như sau:
 
-### 1. Mức độ hoàn thành chức năng theo file yêu cầu
+### 1. Trạng thái chức năng theo file yêu cầu
 
-| Nhóm yêu cầu | Trạng thái | Mức độ | Ghi chú |
-|---|---|---:|---|
-| Đăng nhập / đăng xuất / RBAC 3 role | Hoàn thành | 90% | Có Admin, WarehouseManager, WarehouseStaff; login cookie + authorize hoạt động rõ ràng. |
-| Quản lý SKU / danh mục / kho | Hoàn thành | 90% | Manager có quyền CRUD master data; dữ liệu seed sẵn và có unique constraint. |
-| Nhập kho và duyệt phiếu nhập | Hoàn thành | 90% | Tạo phiếu, duyệt, tăng tồn, log transaction, audit log. |
-| Xuất kho và duyệt phiếu xuất | Hoàn thành | 90% | Có kiểm tra tồn, chặn tồn âm, transaction trong cùng DB transaction. |
-| Tra cứu tồn và lịch sử biến động | Hoàn thành | 90% | Có inventory + stock transactions; dữ liệu minh bạch. |
-| Kiểm kê và điều chỉnh tồn | Hoàn thành | 85% | Tạo stocktake, ghi actual qty, tính difference, duyệt điều chỉnh. |
-| Cảnh báo tồn thấp | Hoàn thành | 85% | Dựa trên min_stock và low stock flag. |
-| Báo cáo NXT | Hoàn thành | 85% | Có báo cáo tổng hợp, export Excel/PDF. |
-| Audit log | Hoàn thành | 85% | Có ghi log khi login, approve, reject, access errors. |
-| Test nghiệp vụ | Hoàn thành | 100% | Có 20 test xUnit với các case chính. |
-
-### 2. Tỷ lệ hoàn thành ước tính
-
-- Về chức năng nghiệp vụ chính theo file phân tích: khoảng 85% - 90%
-- Về production-ready / hoàn thiện hệ thống thực tế: khoảng 60% - 70%
+| Nhóm yêu cầu | Trạng thái | Ghi chú |
+|---|---|---|
+| Đăng nhập / đăng xuất / RBAC 3 role | Đã đạt | Có Admin, WarehouseManager, WarehouseStaff; login cookie + authorize hoạt động rõ ràng. |
+| Quản lý SKU / danh mục / kho | Đã đạt | Manager có quyền CRUD master data; dữ liệu seed sẵn và có unique constraint. |
+| Nhập kho và duyệt phiếu nhập | Đã đạt | Tạo phiếu, duyệt, tăng tồn, log transaction, audit log. |
+| Xuất kho và duyệt phiếu xuất | Đã đạt | Có kiểm tra tồn, chặn tồn âm, transaction trong cùng DB transaction. |
+| Tra cứu tồn và lịch sử biến động | Đã đạt | Có inventory + stock transactions; dữ liệu minh bạch. |
+| Kiểm kê và điều chỉnh tồn | Đã đạt | Tạo stocktake, ghi actual qty, tính difference, duyệt điều chỉnh. |
+| Cảnh báo tồn thấp | Đã đạt | Dựa trên min_stock và low stock flag. |
+| Báo cáo NXT | Đã đạt | Có báo cáo tổng hợp, export Excel/PDF. |
+| Audit log | Đã đạt | Có ghi log khi login, approve, reject, access errors. |
+| Test nghiệp vụ | Đã đạt | 20 test xUnit và API smoke test đều đạt. |
 
 Nói ngắn gọn: project đã đáp ứng tốt các yêu cầu cốt lõi của môn học / demo nghiệp vụ kho; phần production vẫn còn performance/integration test, triển khai production và kiểm thử UI.
 
