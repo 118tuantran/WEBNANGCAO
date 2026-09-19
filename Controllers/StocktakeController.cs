@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using WarehouseManagement.Domain;
 using WarehouseManagement.Services;
 
 namespace WarehouseManagement.Controllers;
@@ -10,6 +11,9 @@ namespace WarehouseManagement.Controllers;
 [Authorize(Roles = "WarehouseManager,WarehouseStaff")]
 public sealed class StocktakeController(InventoryService service) : ControllerBase
 {
+    [HttpGet]
+    public async Task<IActionResult> List([FromQuery] StocktakeStatus? status) => Ok(await service.GetStocktakesAsync(status));
+
     [HttpPost]
     [Authorize(Roles = "WarehouseManager")]
     public async Task<IActionResult> Create(StocktakeRequest request)
@@ -21,12 +25,12 @@ public sealed class StocktakeController(InventoryService service) : ControllerBa
     [HttpPut("{stocktakeId:int}/details/{detailId:int}")]
     public async Task<IActionResult> Count(int stocktakeId, int detailId, CountRequest request)
     {
-        try { return Ok(await service.RecordCountAsync(stocktakeId, detailId, request.ActualQuantity, request.Reason)); }
+        try { return Ok(await service.RecordCountAsync(stocktakeId, detailId, request.ActualQuantity, request.Reason, UserId, canSetReason: User.IsInRole(nameof(UserRole.WarehouseManager)))); }
         catch (InvalidOperationException e) { return BadRequest(new { message = e.Message }); }
     }
 
     [HttpGet("{id:int}")]
-    public async Task<IActionResult> Get(int id) => (await service.GetStocktakeAsync(id)) is { } stocktake ? Ok(stocktake) : NotFound();
+    public async Task<IActionResult> Get(int id) => (await service.GetStocktakeAsync(id)) is { } stocktake ? Ok(stocktake) : NotFound(new { message = "Không tìm thấy đợt kiểm kê." });
 
     [HttpPost("{id:int}/approve")]
     [Authorize(Roles = "WarehouseManager")]
